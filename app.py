@@ -1,15 +1,17 @@
 import html as _html
+import xml.etree.ElementTree as ET
+import datetime as _dt
 import streamlit as st
+import streamlit.components.v1 as _components
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-import numpy as np
-import requests
 from datetime import datetime
 from urllib.parse import quote
+import requests as _req
 
-from modules.data_generator import get_historical_data, CAUSE_CATEGORY, CATEGORY_COLOR
+from modules.data_generator import CATEGORY_COLOR
 from modules.scraper import (
     fetch_all_realtime,
     fetch_all_history_with_causes,
@@ -24,6 +26,12 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
+)
+
+# ─── 言語設定（Chrome翻訳プロンプト抑制）──────────────────────
+st.markdown(
+    '<script>document.documentElement.lang = "ja";</script>',
+    unsafe_allow_html=True,
 )
 
 # ─── CSS ──────────────────────────────────────────────────────
@@ -153,106 +161,205 @@ section[data-testid="stSidebar"] { background: #dce8f7; }
 
 # ─── 色定義（停電レベル → 色）─────────────────────────────────
 LEVEL_COLORS = {
-    "停電なし":          "#4ade80",   # 緑
-    "〜1,000軒":         "#fbbf24",   # 黄
-    "1,001〜10,000軒":   "#f97316",   # 橙
-    "10,001軒以上":      "#dc2626",   # 赤
-    "データ未取得":      "#cbd5e1",   # グレー
+    "停電なし":     "#4ade80",   # 緑
+    "〜100軒":      "#fef08a",   # 淡黄
+    "〜1,000軒":    "#fbbf24",   # 黄
+    "〜10,000軒":   "#f97316",   # 橙
+    "10,000軒以上": "#dc2626",   # 赤
+    "データ未取得": "#cbd5e1",   # グレー
 }
 
-# ─── GeoJSON キャッシュ ────────────────────────────────────────
-@st.cache_data(ttl=86400, show_spinner=False)
-def load_japan_geojson():
-    try:
-        url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
-        resp = requests.get(url, timeout=12)
-        resp.raise_for_status()
-        return resp.json()
-    except Exception:
-        return None
+# ─── 電力会社別 都道府県リスト ────────────────────────────────
+_COMPANY_PREFS: dict[str, list] = {
+    "北海道電力ネットワーク": ["北海道"],
+    "東北電力ネットワーク":   ["青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "新潟県"],
+    "北陸電力送配電":         ["富山県", "石川県", "福井県"],
+    "東京電力パワーグリッド": ["茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県", "山梨県", "静岡県"],
+    "中部電力パワーグリッド": ["愛知県", "三重県", "岐阜県", "静岡県", "長野県"],
+    "関西電力送配電":         ["滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"],
+    "中国電力ネットワーク":   ["鳥取県", "島根県", "岡山県", "広島県", "山口県"],
+    "四国電力送配電":         ["香川県", "愛媛県", "徳島県", "高知県"],
+    "九州電力送配電":         ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"],
+    "沖縄電力":               ["沖縄県"],
+}
+
+# 停電レベルの深刻度順（最も重い→軽い）
+_LEVEL_SEVERITY = ["10,000軒以上", "〜10,000軒", "〜1,000軒", "〜100軒", "停電なし", "データ未取得"]
+
+# CSS grid-area 名と会社のマッピング（北から南・簡易日本地図配置）
+# 4列グリッド: 左(西)→右(東)
+#   '. . . hokkaido'              北海道：右上（北東）
+#   '. tohoku tohoku tohoku'      東北：右寄り（北〜北中央）
+#   'rikuden chubu kanto kanto'   北陸(西)/中部(中)/関東(東2列)
+#   'kansai chubu kanto kanto'    近畿(西)/中部・関東続く
+#   'chugoku chugoku shikoku .'   中国(西2列)/四国(中東)
+#   'kyushu kyushu . .'           九州(西2列)
+#   'okinawa . . .'               沖縄(最西・最南)
+_GRID_AREAS = {
+    "北海道電力ネットワーク": "hokkaido",
+    "東北電力ネットワーク":   "tohoku",
+    "北陸電力送配電":         "rikuden",
+    "東京電力パワーグリッド": "kanto",
+    "中部電力パワーグリッド": "chubu",
+    "関西電力送配電":         "kansai",
+    "中国電力ネットワーク":   "chugoku",
+    "四国電力送配電":         "shikoku",
+    "九州電力送配電":         "kyushu",
+    "沖縄電力":               "okinawa",
+}
+
+_GRID_TEMPLATE = (
+    "'. . . hokkaido' "
+    "'. tohoku tohoku tohoku' "
+    "'rikuden chubu kanto kanto' "
+    "'kansai chubu kanto kanto' "
+    "'chugoku chugoku shikoku .' "
+    "'kyushu kyushu . .' "
+    "'okinawa . . .'"
+)
 
 
-# ─── マップ作成（離散カテゴリーによる着色）────────────────────
-def build_choropleth(df: pd.DataFrame, geojson) -> go.Figure:
-    """停電レベル別に離散色分けしたコロプレスマップ"""
-    fig = px.choropleth_mapbox(
-        df,
-        geojson=geojson,
-        locations="code",
-        featureidkey="id",
-        color="outage_level",
-        color_discrete_map=LEVEL_COLORS,
-        category_orders={"outage_level": list(LEVEL_COLORS.keys())},
-        hover_name="prefecture",
-        hover_data={
-            "code": False,
-            "outage_level": True,
-            "affected_customers": ":,",
-            "data_status": True,
-            "data_source": True,
-            "fetched_at": True,
-        },
-        labels={
-            "outage_level": "停電規模",
-            "affected_customers": "停電軒数",
-            "data_status": "データ状態",
-            "data_source": "情報元",
-            "fetched_at": "情報更新",
-        },
-        mapbox_style="carto-positron",
-        center={"lat": 36.5, "lon": 137.5},
-        zoom=4.2,
-        opacity=0.85,
+def build_company_map_html(df: pd.DataFrame) -> str:
+    """電力会社別・簡易日本地図配置のクリッカブルHTMLカード
+    （各社大枠の中に都道府県小枠入り）"""
+
+    def _short(name: str) -> str:
+        return name[:-1] if name.endswith(("県", "府", "都")) else name
+
+    cards = ""
+    for company, grid_area in _GRID_AREAS.items():
+        url     = _COMPANY_URLS.get(company, "#")
+        prefs   = _COMPANY_PREFS.get(company, [])
+        comp_df = df[df["data_source"] == company]
+
+        # 最も深刻な停電レベルを取得
+        levels   = comp_df["outage_level"].tolist() if not comp_df.empty else []
+        worst    = next((lvl for lvl in _LEVEL_SEVERITY if lvl in levels), "データ未取得")
+        card_bg  = LEVEL_COLORS.get(worst, "#cbd5e1")
+        card_txt = "#fff" if worst in ["10,000軒以上", "〜10,000軒"] else "#1e293b"
+
+        # 会社名の短縮表示
+        short = (
+            company
+            .replace("電力ネットワーク", "電力NW")
+            .replace("パワーグリッド", "PG")
+            .replace("送配電", "")
+        )
+
+        # 都道府県サブボックス
+        pref_boxes = ""
+        for p in prefs:
+            row     = df[df["prefecture"] == p]
+            p_level = str(row.iloc[0]["outage_level"]) if not row.empty else "データ未取得"
+            p_bg    = LEVEL_COLORS.get(p_level, "#cbd5e1")
+            p_cnt   = int(row.iloc[0]["affected_customers"]) \
+                      if not row.empty and row.iloc[0]["data_status"] == "取得済み" else 0
+            p_txt   = "#fff" if p_level in ["10,000軒以上", "〜10,000軒"] else "#1e293b"
+            cnt_div = (
+                f'<div style="font-size:0.63rem;font-weight:700;color:{p_txt};'
+                f'line-height:1.1;">{p_cnt:,}</div>'
+            ) if p_cnt > 0 else ""
+            pref_boxes += (
+                f'<div style="background:{p_bg};border-radius:5px;padding:4px 2px;'
+                f'text-align:center;border:1.5px solid rgba(255,255,255,0.55);'
+                f'min-width:0;overflow:hidden;">'
+                f'<div style="font-size:0.65rem;font-weight:600;color:{p_txt};'
+                f'white-space:nowrap;">{_short(p)}</div>'
+                f'{cnt_div}'
+                f'</div>'
+            )
+
+        cards += (
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
+            f' style="grid-area:{grid_area};text-decoration:none;'
+            f'background:{card_bg};border-radius:10px;padding:10px 12px;display:block;'
+            f'box-shadow:0 2px 8px rgba(0,0,0,0.1);'
+            f'border:2px solid rgba(255,255,255,0.45);"'
+            f' onmouseover="this.style.transform=\'scale(1.01)\';'
+            f'this.style.boxShadow=\'0 5px 18px rgba(0,0,0,0.18)\'"'
+            f' onmouseout="this.style.transform=\'scale(1)\';'
+            f'this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.1)\'">'
+            f'<div style="font-size:0.72rem;font-weight:700;color:{card_txt};'
+            f'margin-bottom:6px;">{short}</div>'
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));'
+            f'gap:3px;">{pref_boxes}</div>'
+            f'</a>'
+        )
+
+    return (
+        f'<div style="display:grid;'
+        f'grid-template-columns:18% 24% 32% 26%;'
+        f'grid-template-rows:repeat(7,auto);'
+        f'grid-template-areas:{_GRID_TEMPLATE};'
+        f'gap:8px;padding:14px;'
+        f'background:#dce8f7;border-radius:14px;">'
+        f'{cards}</div>'
     )
-    fig.update_layout(
-        height=540,
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        legend=dict(
-            title="停電規模",
-            orientation="v",
-            x=0.01, y=0.99,
-            bgcolor="rgba(255,255,255,0.9)",
-            bordercolor="#e5e7eb",
-            borderwidth=1,
-            font=dict(size=11),
-        ),
-    )
-    return fig
 
 
-def build_bubble_map(df: pd.DataFrame) -> go.Figure:
-    """GeoJSON取得不可時のバブルマップ（フォールバック）"""
-    fig = go.Figure()
-    for level, color in LEVEL_COLORS.items():
-        sub = df[df["outage_level"] == level]
-        if sub.empty:
-            continue
-        size = sub["affected_customers"].apply(lambda x: max(8, np.sqrt(x) / 4 + 8) if x > 0 else 8)
-        fig.add_trace(go.Scattermapbox(
-            lat=sub["lat"], lon=sub["lon"], mode="markers",
-            marker=go.scattermapbox.Marker(size=size, color=color, opacity=0.85),
-            text=sub.apply(
-                lambda r: f"<b>{r['prefecture']}</b><br>"
-                          f"停電軒数: {r['affected_customers']:,}軒<br>"
-                          f"規模: {r['outage_level']}<br>"
-                          f"情報元: {r['data_source']}",
-                axis=1,
-            ),
-            hoverinfo="text", name=level,
-        ))
-    fig.update_layout(
-        mapbox_style="carto-positron",
-        mapbox=dict(center={"lat": 36.5, "lon": 137.5}, zoom=4.0),
-        height=540, margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        legend=dict(title="停電規模"),
+def pref_list_wide_html(df: pd.DataFrame) -> str:
+    """ワイド表示用 停電状況リスト（停電中をカード形式・フレックスレイアウト）"""
+    active  = df[df["affected_customers"] > 0].sort_values("affected_customers", ascending=False)
+    no_data = df[df["data_status"] == "取得不可"]
+
+    if active.empty and no_data.empty:
+        return (
+            '<div style="padding:16px; text-align:center; color:#16a34a; font-weight:600;'
+            ' background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">'
+            '✅ 現在、停電は確認されていません</div>'
+        )
+
+    html = (
+        '<div style="background:white; border-radius:10px; padding:12px 16px;'
+        ' box-shadow:0 1px 4px rgba(0,0,0,0.06);">'
     )
-    return fig
+
+    if not active.empty:
+        html += (
+            '<div style="font-size:0.72rem; font-weight:700; color:#ef4444;'
+            ' margin-bottom:8px; display:flex; align-items:center; gap:6px;">'
+            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+            'background:#ef4444;"></span>停電中</div>'
+            '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">'
+        )
+        for _, r in active.iterrows():
+            bg    = LEVEL_COLORS.get(r["outage_level"], "#fbbf24")
+            txt_c = "#fff" if r["outage_level"] in ["10,000軒以上", "〜10,000軒"] else "#1e293b"
+            html += (
+                f'<div style="background:{bg};border-radius:8px;padding:8px 14px;'
+                f'min-width:120px;box-shadow:0 1px 6px rgba(0,0,0,0.1);">'
+                f'<div style="font-size:0.82rem;font-weight:700;color:{txt_c};">'
+                f'{r["prefecture"]}</div>'
+                f'<div style="font-size:1.1rem;font-weight:700;color:{txt_c};">'
+                f'{r["affected_customers"]:,}'
+                f'<span style="font-size:0.7rem;font-weight:400;"> 軒</span></div>'
+                f'<div style="font-size:0.68rem;color:{txt_c};opacity:0.8;">'
+                f'{r["outage_level"]}</div>'
+                f'</div>'
+            )
+        html += '</div>'
+
+    if not no_data.empty:
+        html += (
+            '<div style="font-size:0.7rem; font-weight:700; color:#64748b;'
+            ' margin-bottom:5px;">○ データ未取得</div>'
+            '<div style="display:flex; flex-wrap:wrap; gap:5px;">'
+        )
+        for _, r in no_data.sort_values("prefecture").iterrows():
+            html += (
+                f'<span style="background:#f1f5f9;border-radius:5px;padding:3px 8px;'
+                f'font-size:0.7rem;color:#64748b;border:1px solid #e2e8f0;">'
+                f'{r["prefecture"]}</span>'
+            )
+        html += '</div>'
+
+    html += '</div>'
+    return html
 
 
 def pref_list_html(df: pd.DataFrame) -> str:
     """Yahoo風の都道府県リスト HTML"""
     active  = df[df["affected_customers"] > 0].sort_values("affected_customers", ascending=False)
-    no_out  = df[(df["affected_customers"] == 0) & (df["data_status"] == "取得済み")]
     no_data = df[df["data_status"] == "取得不可"]
 
     items = ""
@@ -269,21 +376,6 @@ def pref_list_html(df: pd.DataFrame) -> str:
               <div style="text-align:right">
                 <div class="pref-count">{r['affected_customers']:,}軒</div>
                 <div class="pref-meta">{r['outage_level']}</div>
-              </div>
-            </div>"""
-
-    if not no_out.empty:
-        items += "<div style='padding:8px 14px; font-size:0.7rem; color:#16a34a; font-weight:700; background:#f0fdf4;'>● 停電なし（確認済み）</div>"
-        for _, r in no_out.sort_values("prefecture").iterrows():
-            items += f"""<div class="pref-item">
-              <div class="pref-dot" style="background:#4ade80"></div>
-              <div>
-                <div class="pref-name">{r['prefecture']}</div>
-                <div class="pref-meta">{r['data_source']}</div>
-              </div>
-              <div style="text-align:right">
-                <div class="pref-count" style="color:#16a34a">0軒</div>
-                <div class="pref-meta">{r['fetched_at'][:16]}</div>
               </div>
             </div>"""
 
@@ -306,14 +398,40 @@ def pref_list_html(df: pd.DataFrame) -> str:
     return f'<div class="pref-scroll">{items}</div>'
 
 
+_COMPANY_URLS: dict[str, str] = {
+    "北海道電力ネットワーク": "https://teiden-info.hepco.co.jp/",
+    "東北電力ネットワーク":   "https://nw.tohoku-epco.co.jp/teideninfo/",
+    "北陸電力送配電":         "https://www.rikuden.co.jp/nw/teiden/otj010.html",
+    "中部電力パワーグリッド": "https://teiden.powergrid.chuden.co.jp/p/index.html",
+    "東京電力パワーグリッド": "https://teideninfo.tepco.co.jp/",
+    "関西電力送配電":         "https://www.kansai-td.co.jp/teiden-info/index.php",
+    "四国電力送配電":         "https://www.yonden.co.jp/nw/teiden-info/index.html",
+    "中国電力ネットワーク":   "https://www.teideninfo.energia.co.jp/",
+    "九州電力送配電":         "https://www.kyuden.co.jp/td_teiden/kyushu.html",
+    "沖縄電力":               "https://www.okidenmail.jp/bosai/info/index.html",
+}
+
+
+def _company_link(name: str, css_class: str, prefix: str) -> str:
+    url = _COMPANY_URLS.get(name)
+    label = f"{prefix} {name}"
+    if url:
+        return (
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
+            f' class="coverage-tag {css_class}"'
+            f' style="text-decoration:none;">{label}</a>'
+        )
+    return f'<span class="coverage-tag {css_class}">{label}</span>'
+
+
 def coverage_html(df: pd.DataFrame) -> str:
     ok_sources = df[df["data_status"] == "取得済み"]["data_source"].unique()
     ng_sources = df[df["data_status"] == "取得不可"]["data_source"].unique()
     ok_tags = "".join(
-        f'<span class="coverage-tag tag-ok">✓ {s}</span>' for s in sorted(set(ok_sources))
+        _company_link(s, "tag-ok", "✓") for s in sorted(set(ok_sources))
     )
     ng_tags = "".join(
-        f'<span class="coverage-tag tag-ng">✕ {s}</span>' for s in sorted(set(ng_sources))
+        _company_link(s, "tag-ng", "✕") for s in sorted(set(ng_sources))
     )
     ok_count = (df["data_status"] == "取得済み").sum()
     return (
@@ -465,6 +583,98 @@ def load_tohoku_detail():
 def load_tohoku_realtime():
     counts, ts = fetch_tohoku()
     return counts, ts
+
+
+# ─── ニュース RSS 取得 ────────────────────────────────────────
+_CAUSE_KEYWORDS: dict[str, str] = {
+    "停電（全般）": "停電",
+    "火災・停電":   "火災 停電",
+    "地震・停電":   "地震 停電",
+    "大雨・停電":   "大雨 停電",
+    "台風・停電":   "台風 停電",
+    "大雪・停電":   "大雪 停電",
+    "落雷・停電":   "落雷 停電",
+    "強風・停電":   "強風 停電",
+    "計画停電":     "計画停電",
+    "停電 復旧":    "停電 復旧",
+}
+
+_COMPANY_KEYWORDS: dict[str, str] = {
+    "北海道電力": "北海道電力 停電",
+    "東北電力":   "東北電力 停電",
+    "北陸電力":   "北陸電力 停電",
+    "東京電力":   "東京電力 停電",
+    "中部電力":   "中部電力 停電",
+    "関西電力":   "関西電力 停電",
+    "中国電力":   "中国電力 停電",
+    "四国電力":   "四国電力 停電",
+    "九州電力":   "九州電力 停電",
+    "沖縄電力":   "沖縄電力 停電",
+}
+
+# SNS 専用：速報ワードを原因別に追加
+_SNS_CAUSE_KEYWORDS: dict[str, str] = {
+    "停電（全般）": "停電",
+    "停電速報":     "停電速報",
+    "火災・停電":   "火災 停電",
+    "地震・停電":   "地震 停電",
+    "大雨・停電":   "大雨 停電",
+    "台風・停電":   "台風 停電",
+    "大雪・停電":   "大雪 停電",
+    "落雷・停電":   "落雷 停電",
+    "強風・停電":   "強風 停電",
+    "計画停電":     "計画停電",
+}
+
+_KEYWORD_GROUPS: dict[str, dict[str, str]] = {
+    "原因・イベント別": _CAUSE_KEYWORDS,
+    "電力会社別":       _COMPANY_KEYWORDS,
+}
+
+_SNS_KEYWORD_GROUPS: dict[str, dict[str, str]] = {
+    "原因・イベント別": _SNS_CAUSE_KEYWORDS,
+    "電力会社別":       _COMPANY_KEYWORDS,
+}
+
+
+def _parse_rss_date(rss_date: str) -> str:
+    """RSS pubDate (RFC 2822) を JST の 'M/d HH:MM' 形式に変換する"""
+    try:
+        from email.utils import parsedate_to_datetime
+        jst = _dt.timezone(_dt.timedelta(hours=9))
+        dt = parsedate_to_datetime(rss_date).astimezone(jst)
+        return dt.strftime("%-m/%-d %H:%M")
+    except Exception:
+        return rss_date[:16] if rss_date else ""
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_news(query: str = "停電") -> list:
+    """Google News RSS から停電関連記事を取得して返す"""
+    url = (
+        "https://news.google.com/rss/search"
+        f"?q={quote(query)}&hl=ja&gl=JP&ceid=JP:ja"
+    )
+    try:
+        resp = _req.get(url, timeout=12,
+                        headers={"User-Agent": "Mozilla/5.0 (compatible; outage-dashboard/1.0)"})
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        items = []
+        for item in root.findall(".//item"):
+            raw_title = item.findtext("title", "")
+            parts = raw_title.rsplit(" - ", 1)
+            title  = parts[0].strip() if len(parts) > 1 else raw_title.strip()
+            source = parts[1].strip() if len(parts) > 1 else ""
+            items.append({
+                "title":   title,
+                "source":  source,
+                "link":    item.findtext("link", ""),
+                "pubDate": _parse_rss_date(item.findtext("pubDate", "")),
+            })
+        return items
+    except Exception:
+        return []
 
 
 # ─── 各社 都道府県順・配色 ─────────────────────────────────────
@@ -917,11 +1127,12 @@ def render_company_detail(
 
 
 # ─── タブ ─────────────────────────────────────────────────────
-tab_rt, tab_cause, tab_companies, tab_hist = st.tabs([
+tab_rt, tab_companies, tab_sns, tab_news, tab_cause = st.tabs([
     "🔴 リアルタイム停電情報",
-    "🔍 事故起因 集計（実データ）",
     "🏢 各社 詳細",
-    "📊 過去1年の停電実績（参考）",
+    "🐦 SNS情報（X）",
+    "📰 停電ニュース",
+    "🔍 事故起因 集計（実データ）",
 ])
 
 
@@ -978,32 +1189,32 @@ with tab_rt:
     <div class="legend-bar">
       <b>停電軒数（確認済みエリア）</b>
       <div class="legend-item"><div class="dot" style="background:#4ade80"></div>停電なし</div>
+      <div class="legend-item"><div class="dot" style="background:#fef08a; border:1px solid #e5e7eb;"></div>〜100軒</div>
       <div class="legend-item"><div class="dot" style="background:#fbbf24"></div>〜1,000軒</div>
-      <div class="legend-item"><div class="dot" style="background:#f97316"></div>1,001〜10,000軒</div>
-      <div class="legend-item"><div class="dot" style="background:#dc2626"></div>10,001軒以上</div>
+      <div class="legend-item"><div class="dot" style="background:#f97316"></div>〜10,000軒</div>
+      <div class="legend-item"><div class="dot" style="background:#dc2626"></div>10,000軒以上</div>
       <div class="legend-item"><div class="dot" style="background:#cbd5e1"></div>データ未取得</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── マップ + 都道府県リスト ─────────────────────
-    col_map, col_list = st.columns([3, 2])
-    with col_map:
-        geojson = load_japan_geojson()
-        if geojson:
-            st.plotly_chart(build_choropleth(df_rt, geojson), use_container_width=True)
-        else:
-            st.info("地図データ取得中…バブルマップで表示します。")
-            st.plotly_chart(build_bubble_map(df_rt), use_container_width=True)
+    # ── 停電状況リスト（フル幅・上段） ───────────────────
+    confirmed_active = len(active)
+    st.markdown(
+        f'<div class="section-title">停電状況リスト'
+        f'<span style="font-size:0.8rem; font-weight:400; color:#6b7280; margin-left:8px;">'
+        f'停電中: {confirmed_active}都道府県</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(pref_list_wide_html(df_rt), unsafe_allow_html=True)
 
-    with col_list:
-        confirmed_active = len(active)
-        st.markdown(
-            f'<div class="section-title">停電状況リスト'
-            f'<span style="font-size:0.8rem; font-weight:400; color:#6b7280; margin-left:8px;">'
-            f'停電中: {confirmed_active}都道府県</span></div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(pref_list_html(df_rt), unsafe_allow_html=True)
+    # ── 日本地図形カード（フル幅・下段） ─────────────────
+    st.markdown(
+        '<div class="section-title">都道府県別 停電状況（電力会社別・簡易日本地図）'
+        '<span style="font-size:0.75rem; font-weight:400; color:#6b7280; margin-left:8px;">'
+        '北→南順　／　クリックで各社停電情報ページへ</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(build_company_map_html(df_rt), unsafe_allow_html=True)
 
     # ── データ取得元リンク ───────────────────────────
     st.markdown('<div class="section-title">データ取得元（各電力ネットワーク会社公式サイト）</div>',
@@ -1951,114 +2162,175 @@ with tab_companies:
         )
 
 
+
 # ═══════════════════════════════════════════════════
-# タブ4: 過去1年の停電実績（シミュレーション）
+# タブ4: SNS情報（X）
 # ═══════════════════════════════════════════════════
-with tab_hist:
-    st.info(
-        "⚠️ 過去の停電実績は公開APIが存在しないため、**シミュレーションデータ**を表示しています。"
-        " 実際の過去データは各電力会社の公式サイト/年次報告書をご参照ください。"
+with tab_sns:
+    st.markdown(
+        '<div class="section-title">X（旧Twitter）停電関連つぶやき</div>',
+        unsafe_allow_html=True,
     )
 
-    df_hist = get_historical_data()
+    col_sg, col_skw, col_sopen = st.columns([2, 3, 1])
+    with col_sg:
+        sel_sns_group = st.radio(
+            "カテゴリー",
+            list(_SNS_KEYWORD_GROUPS.keys()),
+            horizontal=False,
+            key="sns_group",
+        )
+    with col_skw:
+        sel_sns_kw = st.selectbox(
+            "キーワード",
+            list(_SNS_KEYWORD_GROUPS[sel_sns_group].keys()),
+            key="sns_kw",
+        )
+    sns_query = _SNS_KEYWORD_GROUPS[sel_sns_group][sel_sns_kw]
+    x_search_url = f"https://x.com/search?q={quote(sns_query)}&f=live&lang=ja"
 
-    with st.expander("🔍 フィルター設定", expanded=False):
-        f1, f2 = st.columns(2)
-        with f1:
-            sel_region = st.selectbox("地域", ["全地域"] + sorted(df_hist["region"].unique().tolist()), key="hist_region")
-        with f2:
-            sel_company = st.selectbox("電力会社", ["全電力会社"] + sorted(df_hist["company"].unique().tolist()), key="hist_company")
+    with col_sopen:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.link_button("🔗 X で開く", x_search_url)
 
-    df_f = df_hist.copy()
-    if sel_region  != "全地域":     df_f = df_f[df_f["region"]  == sel_region]
-    if sel_company != "全電力会社": df_f = df_f[df_f["company"] == sel_company]
+    # X 検索リンクカード
+    st.markdown(
+        f"""
+        <div style="background:white; border-radius:12px; padding:24px 28px;
+             box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-top:12px; text-align:center;">
+          <div style="font-size:0.85rem; color:#6b7280; margin-bottom:16px;">
+            X（旧Twitter）は埋め込み表示に対応していないため、直接 X で検索してください。
+          </div>
+          <a href="{x_search_url}" target="_blank" rel="noopener noreferrer"
+             style="display:inline-block; background:#000; color:#fff;
+                    font-size:1rem; font-weight:700; padding:12px 32px;
+                    border-radius:999px; text-decoration:none; margin-bottom:18px;">
+            𝕏 &nbsp;「{_html.escape(sns_query)}」で検索する
+          </a>
+          <div style="font-size:0.78rem; color:#9ca3af;">
+            ライブ検索（最新順）が開きます
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    k1, k2, k3, k4 = st.columns(4)
-    with k1: st.metric("年間停電件数", f"{df_f['incidents'].sum():,} 件")
-    with k2: st.metric("年間停電軒数", f"{df_f['affected_customers'].sum():,} 軒")
-    with k3: st.metric("年間停電時間", f"{df_f['total_outage_hours'].sum():,.0f} 時間")
-    with k4:
-        top_p = df_f.groupby("prefecture")["affected_customers"].sum().idxmax() if not df_f.empty else "—"
-        st.metric("最多影響都道府県", top_p)
+    # 関連クイック検索
+    _related: list[tuple[str, str]] = [
+        (lbl, f"https://x.com/search?q={quote(kw)}&f=live&lang=ja")
+        for lbl, kw in _SNS_KEYWORD_GROUPS[sel_sns_group].items()
+        if kw != sns_query
+    ]
+    if _related:
+        st.markdown(
+            '<div style="font-size:0.78rem; font-weight:700; color:#6b7280;'
+            ' margin:18px 0 8px;">関連キーワードで検索</div>',
+            unsafe_allow_html=True,
+        )
+        _btn_html = '<div style="display:flex; flex-wrap:wrap; gap:8px;">'
+        for lbl, href in _related:
+            _btn_html += (
+                f'<a href="{href}" target="_blank" rel="noopener noreferrer"'
+                f' style="background:#f1f5f9; color:#1e293b; border-radius:999px;'
+                f' padding:6px 16px; font-size:0.78rem; text-decoration:none;'
+                f' border:1px solid #e2e8f0;">{_html.escape(lbl)}</a>'
+            )
+        _btn_html += '</div>'
+        st.markdown(_btn_html, unsafe_allow_html=True)
 
-    st.markdown("")
 
-    # 月別トレンド
-    st.markdown('<div class="section-title">月別 停電件数・停電軒数の推移</div>', unsafe_allow_html=True)
-    monthly = df_f.groupby("month_label").agg(
-        incidents=("incidents", "sum"), affected_customers=("affected_customers", "sum"),
-    ).reset_index()
-    fig_trend = make_subplots(specs=[[{"secondary_y": True}]])
-    fig_trend.add_trace(go.Bar(x=monthly["month_label"], y=monthly["affected_customers"],
-                               name="停電軒数", marker_color="#93c5fd", opacity=0.75), secondary_y=False)
-    fig_trend.add_trace(go.Scatter(x=monthly["month_label"], y=monthly["incidents"],
-                                   name="停電件数", mode="lines+markers",
-                                   line=dict(color="#ef4444", width=2.5), marker=dict(size=7)), secondary_y=True)
-    fig_trend.update_layout(height=360, hovermode="x unified", legend=dict(orientation="h", y=1.08),
-                            margin=dict(t=20, b=20), plot_bgcolor="white", paper_bgcolor="white")
-    fig_trend.update_xaxes(showgrid=False)
-    fig_trend.update_yaxes(title_text="停電軒数（軒）", secondary_y=False, gridcolor="#f3f4f6", tickformat=",")
-    fig_trend.update_yaxes(title_text="停電件数（件）", secondary_y=True, showgrid=False)
-    st.plotly_chart(fig_trend, use_container_width=True)
+# ═══════════════════════════════════════════════════
+# タブ5: 停電ニュース
+# ═══════════════════════════════════════════════════
+with tab_news:
+    st.markdown(
+        '<div class="section-title">停電関連ニュース（Google ニュース RSS）</div>',
+        unsafe_allow_html=True,
+    )
 
-    # 地域別・電力会社別
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="section-title">地域別 累計停電軒数</div>', unsafe_allow_html=True)
-        ra = df_f.groupby("region")["affected_customers"].sum().sort_values().reset_index()
-        fig_r = px.bar(ra, x="affected_customers", y="region", orientation="h",
-                       color="affected_customers", color_continuous_scale="Blues",
-                       labels={"affected_customers": "停電軒数", "region": "地域"})
-        fig_r.update_layout(height=360, margin=dict(t=10, b=10), coloraxis_showscale=False,
-                            plot_bgcolor="white", paper_bgcolor="white")
-        fig_r.update_xaxes(gridcolor="#f3f4f6", tickformat=",")
-        fig_r.update_yaxes(showgrid=False)
-        st.plotly_chart(fig_r, use_container_width=True)
-    with c2:
-        st.markdown('<div class="section-title">電力会社別 停電件数・停電軒数</div>', unsafe_allow_html=True)
-        ca = (df_f.groupby("company")
-              .agg(incidents=("incidents", "sum"), customers=("affected_customers", "sum"))
-              .reset_index().sort_values("customers", ascending=False))
-        fig_co = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_co.add_trace(go.Bar(x=ca["company"], y=ca["customers"], name="停電軒数",
-                                marker_color="#6ee7b7", opacity=0.8), secondary_y=False)
-        fig_co.add_trace(go.Scatter(x=ca["company"], y=ca["incidents"], name="停電件数",
-                                    mode="markers+lines", marker=dict(size=8, color="#7c3aed"),
-                                    line=dict(color="#7c3aed", width=2)), secondary_y=True)
-        fig_co.update_layout(height=360, hovermode="x unified", legend=dict(orientation="h", y=1.08),
-                             margin=dict(t=20, b=20), plot_bgcolor="white", paper_bgcolor="white")
-        fig_co.update_xaxes(showgrid=False)
-        fig_co.update_yaxes(title_text="停電軒数", secondary_y=False, gridcolor="#f3f4f6", tickformat=",")
-        fig_co.update_yaxes(title_text="停電件数", secondary_y=True, showgrid=False)
-        st.plotly_chart(fig_co, use_container_width=True)
+    col_ng, col_nkw, col_nref = st.columns([2, 3, 1])
+    with col_ng:
+        sel_news_group = st.radio(
+            "カテゴリー",
+            list(_KEYWORD_GROUPS.keys()),
+            horizontal=False,
+            key="news_group",
+        )
+    with col_nkw:
+        sel_news_kw = st.selectbox(
+            "キーワード",
+            list(_KEYWORD_GROUPS[sel_news_group].keys()),
+            key="news_kw",
+        )
+    with col_nref:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        _news_fetch_clicked = st.button("🔄 取得・更新", key="news_refresh", type="primary")
 
-    # 都道府県 × 月 ヒートマップ
-    st.markdown('<div class="section-title">都道府県 × 月別 停電軒数ヒートマップ</div>', unsafe_allow_html=True)
-    heat = (df_f.groupby(["prefecture", "month_label"])["affected_customers"]
-            .sum().reset_index()
-            .pivot(index="prefecture", columns="month_label", values="affected_customers").fillna(0))
-    if not heat.empty:
-        fig_heat = go.Figure(go.Heatmap(
-            z=heat.values, x=heat.columns.tolist(), y=heat.index.tolist(),
-            colorscale="YlOrRd",
-            hovertemplate="<b>%{y}</b><br>%{x}<br>停電軒数: %{z:,}軒<extra></extra>",
-            colorbar=dict(title="停電軒数", tickformat=","),
-        ))
-        fig_heat.update_layout(height=820, margin=dict(t=10, b=10, l=10, r=10),
-                               xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, autorange="reversed"))
-        st.plotly_chart(fig_heat, use_container_width=True)
+    news_query = _KEYWORD_GROUPS[sel_news_group][sel_news_kw]
+    google_news_url = (
+        f"https://news.google.com/search?q={quote(news_query)}&hl=ja&gl=JP&ceid=JP:ja"
+    )
+    st.link_button("🔗 Google ニュースで開く", google_news_url)
+
+    # 取得ボタンが押されたときだけ fetch してセッションに保存
+    if _news_fetch_clicked:
+        load_news.clear()
+        with st.spinner("ニュースを取得中..."):
+            _fetched = load_news(news_query)
+        if "news_cache" not in st.session_state:
+            st.session_state["news_cache"] = {}
+        st.session_state["news_cache"][news_query] = _fetched
+
+    _news_cache    = st.session_state.get("news_cache", {})
+    _cached_result = _news_cache.get(news_query)
+
+    if _cached_result is None:
+        st.info(
+            "「🔄 取得・更新」ボタンを押してニュースを読み込んでください。",
+            icon="ℹ️",
+        )
+    elif not _cached_result:
+        st.warning(
+            "ニュースの取得に失敗しました。ネットワーク接続をご確認ください。",
+            icon="⚠️",
+        )
+    else:
+        st.markdown(
+            f'<div style="font-size:0.78rem; color:#6b7280; margin-bottom:10px;">'
+            f'最新 {len(_cached_result)} 件</div>',
+            unsafe_allow_html=True,
+        )
+        for art in _cached_result:
+            title_esc  = _html.escape(art["title"])
+            source_esc = _html.escape(art["source"])
+            pub_esc    = _html.escape(art["pubDate"])
+            link       = art["link"]
+            st.markdown(
+                f'<div style="background:white; border-radius:10px; padding:12px 16px;'
+                f' margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,0.07);'
+                f' border-left:4px solid #3b82f6;">'
+                f'<a href="{link}" target="_blank" rel="noopener noreferrer"'
+                f' style="font-size:0.92rem; font-weight:600; color:#1d4ed8;'
+                f' text-decoration:none;">{title_esc}</a>'
+                f'<div style="margin-top:5px; display:flex; gap:12px;'
+                f' font-size:0.72rem; color:#6b7280;">'
+                f'<span>📰 {source_esc}</span>'
+                f'<span>🕐 {pub_esc}</span>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
 
 # ─── フッター ─────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
     "<p style='text-align:center; color:#9ca3af; font-size:0.78rem;'>"
-    "リアルタイム・停電履歴データ提供元: "
-    "<a href='https://nw.tohoku-epco.co.jp/teideninfo/rireki.html' target='_blank' style='color:#3b82f6'>東北電力ネットワーク</a> / "
+    "停電データ提供元: 各電力ネットワーク会社公式サイト"
+    "（<a href='https://nw.tohoku-epco.co.jp/teideninfo/rireki.html' target='_blank' style='color:#3b82f6'>東北電力NW</a> / "
     "<a href='https://www.kansai-td.co.jp/teiden-info/index.php' target='_blank' style='color:#3b82f6'>関西電力送配電</a> / "
-    "<a href='https://www.yonden.co.jp/nw/teiden-info/history.html' target='_blank' style='color:#3b82f6'>四国電力送配電</a>"
-    "（各社公式ホームページ）<br>"
-    "過去1年実績はシミュレーションデータです。"
-    " 参考: <a href='https://typhoon.yahoo.co.jp/weather/poweroutage/' target='_blank' style='color:#3b82f6'>"
+    "<a href='https://www.yonden.co.jp/nw/teiden-info/history.html' target='_blank' style='color:#3b82f6'>四国電力送配電</a> 他）"
+    " | 参考: <a href='https://typhoon.yahoo.co.jp/weather/poweroutage/' target='_blank' style='color:#3b82f6'>"
     "Yahoo!天気・災害 停電情報</a>"
     " | <a href='https://www.fepc.or.jp/sp/bousai/link.html' target='_blank' style='color:#3b82f6'>"
     "電気事業連合会</a>"

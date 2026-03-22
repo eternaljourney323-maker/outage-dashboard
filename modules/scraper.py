@@ -1345,12 +1345,14 @@ def fetch_all_realtime() -> pd.DataFrame:
             level = scale_label = "データ未取得"
         elif count == 0:
             level = scale_label = "停電なし"
+        elif count <= 100:
+            level = scale_label = "〜100軒"
         elif count <= 1000:
             level = scale_label = "〜1,000軒"
         elif count <= 10000:
-            level = scale_label = "1,001〜10,000軒"
+            level = scale_label = "〜10,000軒"
         else:
-            level = scale_label = "10,001軒以上"
+            level = scale_label = "10,000軒以上"
         rows.append({
             "code":               str(pref["code"]),
             "prefecture":         name,
