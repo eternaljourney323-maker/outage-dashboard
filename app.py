@@ -2177,13 +2177,17 @@ with tab_sns:
         sel_sns_group = st.radio(
             "カテゴリー",
             list(_SNS_KEYWORD_GROUPS.keys()),
+            index=1,
             horizontal=False,
             key="sns_group",
         )
     with col_skw:
+        _sns_kw_list = list(_SNS_KEYWORD_GROUPS[sel_sns_group].keys())
+        _sns_kw_default = _sns_kw_list.index("東北電力") if "東北電力" in _sns_kw_list else 0
         sel_sns_kw = st.selectbox(
             "キーワード",
-            list(_SNS_KEYWORD_GROUPS[sel_sns_group].keys()),
+            _sns_kw_list,
+            index=_sns_kw_default,
             key="sns_kw",
         )
     sns_query = _SNS_KEYWORD_GROUPS[sel_sns_group][sel_sns_kw]
@@ -2253,13 +2257,17 @@ with tab_news:
         sel_news_group = st.radio(
             "カテゴリー",
             list(_KEYWORD_GROUPS.keys()),
+            index=1,
             horizontal=False,
             key="news_group",
         )
     with col_nkw:
+        _news_kw_list = list(_KEYWORD_GROUPS[sel_news_group].keys())
+        _news_kw_default = _news_kw_list.index("東北電力") if "東北電力" in _news_kw_list else 0
         sel_news_kw = st.selectbox(
             "キーワード",
-            list(_KEYWORD_GROUPS[sel_news_group].keys()),
+            _news_kw_list,
+            index=_news_kw_default,
             key="news_kw",
         )
     with col_nref:
