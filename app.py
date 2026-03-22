@@ -9,8 +9,8 @@ import requests
 from datetime import datetime
 from urllib.parse import quote
 
-from data_generator import get_historical_data, CAUSE_CATEGORY, CATEGORY_COLOR
-from scraper import (
+from modules.data_generator import get_historical_data, CAUSE_CATEGORY, CATEGORY_COLOR
+from modules.scraper import (
     fetch_all_realtime,
     fetch_all_history_with_causes,
     fetch_tohoku,
@@ -30,68 +30,90 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
-html, body, [class*="css"] { font-family: 'Noto Sans JP', sans-serif; }
+html, body, [class*="css"] {
+    font-family: 'Noto Sans JP', sans-serif;
+    color: #1e293b;
+}
 
+/* ── 明るい背景・テキスト強制 ──────────────── */
+.stApp { background-color: #eef3fb; color: #1e293b; }
+.stApp p, .stApp span, .stApp div, .stApp label,
+.stApp li, .stApp h1, .stApp h2, .stApp h3,
+[data-testid="stMarkdownContainer"] { color: #1e293b; }
+section[data-testid="stSidebar"] { background: #dce8f7; }
+.block-container { background-color: transparent; }
+
+/* ── ヘッダー（明るいブルー） ────────────── */
 .main-header {
-    background: linear-gradient(135deg, #0c1445 0%, #1a237e 60%, #283593 100%);
-    padding: 20px 28px; border-radius: 12px;
+    background: linear-gradient(135deg, #1d6ae5 0%, #3b82f6 55%, #60a5fa 100%);
+    padding: 20px 28px; border-radius: 14px;
     margin-bottom: 20px; color: white;
     display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(59,130,246,0.35);
 }
 .main-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
-.main-header p  { font-size: 0.82rem; opacity: 0.7; margin: 3px 0 0; }
-.header-right   { text-align: right; font-size: 0.8rem; opacity: 0.8; }
+.main-header p  { font-size: 0.82rem; opacity: 0.85; margin: 3px 0 0; }
+.header-right   { text-align: right; font-size: 0.8rem; opacity: 0.9; }
 
+/* ── KPI カード ──────────────────────────── */
 .kpi-card {
-    background: white; border-radius: 10px;
+    background: white; border-radius: 12px;
     padding: 14px 18px; border-left: 5px solid;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
 }
 .kpi-card.red    { border-left-color: #ef4444; }
 .kpi-card.orange { border-left-color: #f97316; }
 .kpi-card.blue   { border-left-color: #3b82f6; }
 .kpi-card.green  { border-left-color: #22c55e; }
 .kpi-card.gray   { border-left-color: #9ca3af; }
+.kpi-card.indigo { border-left-color: #6366f1; }
 .kpi-label { font-size: 0.7rem; color: #6b7280; font-weight: 600;
              text-transform: uppercase; letter-spacing: 0.05em; }
 .kpi-value { font-size: 1.8rem; font-weight: 700; color: #111827; line-height: 1.2; }
 .kpi-sub   { font-size: 0.75rem; color: #9ca3af; margin-top: 3px; }
 
+/* ── セクションタイトル ─────────────────── */
 .section-title {
-    font-size: 1rem; font-weight: 700; color: #1e293b;
+    font-size: 1rem; font-weight: 700; color: #1e3a8a;
     border-left: 4px solid #3b82f6; padding-left: 10px;
-    margin: 18px 0 10px;
+    margin: 18px 0 10px; background: white;
+    border-radius: 0 8px 8px 0; padding: 7px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-/* 凡例バー */
+
+/* ── 凡例バー ────────────────────────────── */
 .legend-bar {
     display: flex; gap: 16px; align-items: center;
-    background: #f8fafc; border-radius: 8px; padding: 10px 16px;
+    background: white; border-radius: 8px; padding: 10px 16px;
     margin-bottom: 10px; font-size: 0.8rem; flex-wrap: wrap;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .legend-item { display: flex; align-items: center; gap: 6px; }
 .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
-/* データカバレッジバー */
+/* ── カバレッジバー ──────────────────────── */
 .coverage-bar {
-    background: white; border-radius: 8px; padding: 10px 16px;
-    border: 1px solid #e2e8f0; margin-bottom: 12px;
+    background: white; border-radius: 10px; padding: 10px 16px;
+    border: 1px solid #dbeafe; margin-bottom: 12px;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.8rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .coverage-tag {
     display: inline-flex; align-items: center; gap: 4px;
     border-radius: 20px; padding: 3px 10px; font-size: 0.72rem; font-weight: 600;
 }
 .tag-ok   { background: #dcfce7; color: #166534; }
-.tag-ng   { background: #f1f5f9; color: #64748b; }
+.tag-ng   { background: #e0e7ff; color: #3730a3; }
 
-/* 都道府県リスト */
+/* ── 都道府県リスト ──────────────────────── */
 .pref-scroll {
     height: 520px; overflow-y: auto;
-    border: 1px solid #e5e7eb; border-radius: 8px; background: white;
+    border: 1px solid #dbeafe; border-radius: 10px; background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .pref-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; border-bottom: 1px solid #f3f4f6;
+    padding: 10px 14px; border-bottom: 1px solid #f0f4ff;
 }
 .pref-item:last-child { border-bottom: none; }
 .pref-dot  { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
@@ -99,11 +121,12 @@ html, body, [class*="css"] { font-family: 'Noto Sans JP', sans-serif; }
 .pref-count { font-size: 0.9rem; font-weight: 700; color: #111827; min-width: 80px; text-align: right; }
 .pref-meta  { font-size: 0.68rem; color: #9ca3af; }
 
-/* 事故起因カード */
+/* ── 事故起因カード ──────────────────────── */
 .cause-card {
-    background: white; border-radius: 8px; padding: 12px 14px;
-    margin-bottom: 8px; border: 1px solid #e5e7eb;
+    background: white; border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 8px; border: 1px solid #dbeafe;
     display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .cause-badge {
     border-radius: 6px; padding: 3px 10px; font-size: 0.72rem;
@@ -112,6 +135,19 @@ html, body, [class*="css"] { font-family: 'Noto Sans JP', sans-serif; }
 .cause-name  { font-size: 0.88rem; font-weight: 600; flex: 1; }
 .cause-count { font-size: 1.1rem; font-weight: 700; color: #111827; }
 .cause-sub   { font-size: 0.72rem; color: #9ca3af; }
+
+/* ── 各社詳細カード ──────────────────────── */
+.company-info-bar {
+    background: white; border-radius: 10px; padding: 10px 16px;
+    border-left: 5px solid #3b82f6; margin-bottom: 14px;
+    font-size: 0.82rem; color: #374151;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+}
+.pref-card {
+    background: white; border-radius: 10px; padding: 12px 10px;
+    text-align: center; border: 1.5px solid;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -408,11 +444,16 @@ def build_outage_table_html(df: pd.DataFrame) -> str:
     )
 
 
-_CACHE_VERSION = "v2"   # date_label 列追加後にインクリメント → キャッシュ自動無効化
+_CACHE_VERSION = "v3"   # weather_flag 列追加後にインクリメント → キャッシュ自動無効化
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_history_data(_ver: str = _CACHE_VERSION):
     return fetch_all_history_with_causes()
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_realtime_data():
+    return fetch_all_realtime()
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -426,11 +467,460 @@ def load_tohoku_realtime():
     return counts, ts
 
 
+# ─── 各社 都道府県順・配色 ─────────────────────────────────────
+_TOHOKU_PREF_ORDER = ["青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "新潟県"]
+_TOHOKU_PREF_COLOR = {
+    "青森県": "#3b82f6", "岩手県": "#06b6d4", "宮城県": "#10b981",
+    "秋田県": "#f59e0b", "山形県": "#f97316", "福島県": "#ef4444", "新潟県": "#8b5cf6",
+}
+
+_RIKUDEN_PREF_ORDER = ["富山県", "石川県", "福井県"]
+_RIKUDEN_PREF_COLOR = {"富山県": "#0284c7", "石川県": "#0891b2", "福井県": "#06b6d4"}
+
+_CHUGOKU_PREF_ORDER = ["鳥取県", "島根県", "岡山県", "広島県", "山口県"]
+_CHUGOKU_PREF_COLOR = {
+    "鳥取県": "#7c3aed", "島根県": "#8b5cf6", "岡山県": "#a78bfa",
+    "広島県": "#c084fc", "山口県": "#e879f9",
+}
+
+_KYUSHU_PREF_ORDER = ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"]
+_KYUSHU_PREF_COLOR = {
+    "福岡県": "#dc2626", "佐賀県": "#ea580c", "長崎県": "#d97706",
+    "熊本県": "#65a30d", "大分県": "#0891b2", "宮崎県": "#7c3aed", "鹿児島県": "#db2777",
+}
+
+_HOKKAIDO_PREF_ORDER = ["北海道"]
+_HOKKAIDO_PREF_COLOR = {"北海道": "#1d4ed8"}
+
+_KANSAI_PREF_ORDER = ["滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"]
+_KANSAI_PREF_COLOR = {
+    "滋賀県": "#0369a1", "京都府": "#dc2626", "大阪府": "#ea580c",
+    "兵庫県": "#65a30d", "奈良県": "#0891b2", "和歌山県": "#8b5cf6",
+}
+
+_SHIKOKU_PREF_ORDER = ["香川県", "愛媛県", "徳島県", "高知県"]
+_SHIKOKU_PREF_COLOR = {
+    "香川県": "#0369a1", "愛媛県": "#dc2626", "徳島県": "#65a30d", "高知県": "#d97706",
+}
+
+_TEPCO_PREF_ORDER = ["茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県", "山梨県", "静岡県"]
+_TEPCO_PREF_COLOR = {
+    "茨城県": "#3b82f6", "栃木県": "#06b6d4", "群馬県": "#10b981",
+    "埼玉県": "#f59e0b", "千葉県": "#f97316", "東京都": "#ef4444",
+    "神奈川県": "#8b5cf6", "山梨県": "#db2777", "静岡県": "#0891b2",
+}
+
+_CHUBU_PREF_ORDER = ["愛知県", "三重県", "岐阜県", "静岡県", "長野県"]
+_CHUBU_PREF_COLOR = {
+    "愛知県": "#0369a1", "三重県": "#0891b2", "岐阜県": "#10b981",
+    "静岡県": "#f59e0b", "長野県": "#8b5cf6",
+}
+
+_OKINAWA_PREF_ORDER = ["沖縄県"]
+_OKINAWA_PREF_COLOR = {"沖縄県": "#059669"}
+
+
+# ─── 各社共通 詳細ビュー ───────────────────────────────────────
+def _pref_cards(pref_order: list[str], pref_colors: dict[str, str],
+                df_rt: pd.DataFrame, key_prefix: str):
+    """都道府県別 リアルタイムカードを描画する"""
+    n = len(pref_order)
+    cols = st.columns(min(n, 7))
+    for i, pref in enumerate(pref_order):
+        row = df_rt[df_rt["prefecture"] == pref]
+        if row.empty:
+            count, status = None, "取得不可"
+        else:
+            r = row.iloc[0]
+            count = r["affected_customers"] if r["data_status"] == "取得済み" else None
+            status = r["data_status"]
+        if count is None:
+            bg, txt_c, val_str, bdc = "#f8fafc", "#64748b", "取得不可", "#e2e8f0"
+        elif count == 0:
+            bg, txt_c, val_str, bdc = "#f0fdf4", "#16a34a", "0 軒", "#bbf7d0"
+        elif count <= 1000:
+            bg, txt_c, val_str, bdc = "#fefce8", "#ca8a04", f"{count:,} 軒", "#fde68a"
+        elif count <= 10000:
+            bg, txt_c, val_str, bdc = "#fff7ed", "#c2410c", f"{count:,} 軒", "#fed7aa"
+        else:
+            bg, txt_c, val_str, bdc = "#fef2f2", "#b91c1c", f"{count:,} 軒", "#fecaca"
+        dot_c = pref_colors.get(pref, "#6b7280")
+        with cols[i % len(cols)]:
+            st.markdown(
+                f'<div class="pref-card" style="background:{bg}; border-color:{bdc};">'
+                f'<div style="width:10px;height:10px;border-radius:50%;background:{dot_c};'
+                f' margin:0 auto 5px;"></div>'
+                f'<div style="font-size:0.78rem; font-weight:700; color:#374151;">{pref}</div>'
+                f'<div style="font-size:1rem; font-weight:700; color:{txt_c};'
+                f' margin-top:5px;">{val_str}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def _weather_summary_bar(dfc: pd.DataFrame) -> None:
+    """起因フラグ サマリーバーを描画する"""
+    from collections import Counter as _Counter
+    _all_flags: list[str] = []
+    for _fs in dfc["weather_flag"].fillna("不明"):
+        _all_flags.extend(_fs.split("|"))
+    wf_counts = _Counter(_all_flags)
+    total_cnt = len(dfc)
+    w_tags = ""
+    for flag, cfg in WEATHER_FLAG_CONFIG.items():
+        n   = wf_counts.get(flag, 0)
+        pct = f"{n/total_cnt*100:.0f}%" if total_cnt > 0 else "—"
+        w_tags += (
+            f'<span style="display:inline-flex; align-items:center; gap:6px;'
+            f' background:{cfg["bg"]}; color:{cfg["color"]}; border-radius:20px;'
+            f' padding:4px 14px; font-size:0.78rem; font-weight:700;'
+            f' margin-right:8px;">'
+            f'{cfg["label"]} <span style="font-size:1rem;">{n}件</span>'
+            f' <span style="opacity:.7;">({pct})</span></span>'
+        )
+    st.markdown(
+        f'<div style="background:white; border:1px solid #dbeafe;'
+        f' border-radius:8px; padding:10px 14px; margin:10px 0 4px;">'
+        f'<span style="font-size:0.75rem; font-weight:700; color:#374151;'
+        f' margin-right:12px;">起因フラグ判定</span>{w_tags}</div>',
+        unsafe_allow_html=True,
+    )
+    return wf_counts, total_cnt
+
+
+def render_company_detail(
+    company_name: str,
+    pref_order: list[str],
+    pref_colors: dict[str, str],
+    rt_url: str,
+    hist_url: str,
+    df_rt: pd.DataFrame,
+    df_hist: pd.DataFrame,
+    key_prefix: str,
+    n_hist_days: str = "過去7日",
+):
+    """任意の電力会社の詳細ビューをレンダリングする汎用関数"""
+    sub_rt, sub_hist = st.tabs(["📡 リアルタイム状況", "📅 履歴分析"])
+
+    # ── サブタブ A: リアルタイム ──────────────────────────────
+    with sub_rt:
+        comp_rt = df_rt[df_rt["prefecture"].isin(pref_order)]
+        ts_vals = comp_rt["fetched_at"].dropna()
+        ts_str = ts_vals.iloc[0] if not ts_vals.empty else "—"
+
+        st.markdown(
+            f'<div class="company-info-bar">'
+            f'情報更新: <b>{ts_str[:16] if ts_str != "—" else "—"}</b>'
+            f'&ensp;|&ensp;<a href="{rt_url}" target="_blank" style="color:#2563eb;">'
+            f'{company_name} 停電情報ページ</a></div>',
+            unsafe_allow_html=True,
+        )
+
+        active_prefs = comp_rt[comp_rt["affected_customers"] > 0]
+        total_count  = int(comp_rt["affected_customers"].sum())
+        n_pref       = len(pref_order)
+        max_row      = comp_rt.loc[comp_rt["affected_customers"].idxmax()] \
+                       if not comp_rt.empty else None
+
+        rt1, rt2, rt3 = st.columns(3)
+        with rt1:
+            st.markdown(f"""
+            <div class="kpi-card red">
+              <div class="kpi-label">停電中県数</div>
+              <div class="kpi-value">{len(active_prefs)}</div>
+              <div class="kpi-sub">/ {n_pref} 県（管内）</div>
+            </div>""", unsafe_allow_html=True)
+        with rt2:
+            st.markdown(f"""
+            <div class="kpi-card orange">
+              <div class="kpi-label">停電軒数（管内合計）</div>
+              <div class="kpi-value">{total_count:,}</div>
+              <div class="kpi-sub">軒</div>
+            </div>""", unsafe_allow_html=True)
+        with rt3:
+            if max_row is not None and int(max_row["affected_customers"]) > 0:
+                mx_name = max_row["prefecture"]
+                mx_val  = int(max_row["affected_customers"])
+                val_str = f"{mx_val:,} 軒"
+            else:
+                mx_name, val_str = "停電なし", "全県停電なし"
+            st.markdown(f"""
+            <div class="kpi-card blue">
+              <div class="kpi-label">最多停電県</div>
+              <div class="kpi-value" style="font-size:1.3rem;">{mx_name}</div>
+              <div class="kpi-sub">{val_str}</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("")
+
+        # 棒グラフ
+        st.markdown('<div class="section-title">都道府県別 現在の停電軒数</div>',
+                    unsafe_allow_html=True)
+        rows_bar = []
+        for p in pref_order:
+            r = comp_rt[comp_rt["prefecture"] == p]
+            v = int(r["affected_customers"].iloc[0]) if not r.empty and \
+                r.iloc[0]["data_status"] == "取得済み" else 0
+            s = r.iloc[0]["data_status"] if not r.empty else "取得不可"
+            rows_bar.append({"都道府県": p, "停電軒数": v,
+                             "状態": "停電中" if v > 0 else ("取得不可" if s == "取得不可" else "停電なし")})
+        df_bar = pd.DataFrame(rows_bar)
+        color_map = {"停電中": "#ef4444", "停電なし": "#4ade80", "取得不可": "#cbd5e1"}
+        fig_bar = px.bar(df_bar, x="都道府県", y="停電軒数", color="状態",
+                         color_discrete_map=color_map, text="停電軒数",
+                         category_orders={"都道府県": pref_order})
+        fig_bar.update_traces(texttemplate="%{text:,}", textposition="outside")
+        fig_bar.update_layout(
+            height=320, margin=dict(t=20, b=20),
+            plot_bgcolor="white", paper_bgcolor="white",
+            xaxis=dict(showgrid=False), yaxis=dict(gridcolor="#f3f4f6", tickformat=","),
+            showlegend=True, legend=dict(orientation="h", y=1.08),
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        # 都道府県カード
+        st.markdown('<div class="section-title">都道府県別 詳細</div>', unsafe_allow_html=True)
+        _pref_cards(pref_order, pref_colors, comp_rt, key_prefix)
+
+    # ── サブタブ B: 履歴分析 ─────────────────────────────────
+    with sub_hist:
+        comp_hist = df_hist[df_hist["company"] == company_name].copy()
+
+        if comp_hist.empty:
+            st.warning(f"{company_name} の履歴データが取得できませんでした。")
+            st.markdown(
+                f'<div style="font-size:0.8rem; color:#6b7280;">'
+                f'データ取得元: <a href="{hist_url}" target="_blank" style="color:#3b82f6;">'
+                f'{company_name} 停電履歴ページ</a></div>',
+                unsafe_allow_html=True,
+            )
+            return
+
+        # weather_flag 補完
+        if "weather_flag" not in comp_hist.columns:
+            comp_hist["weather_flag"] = "不明"
+
+        # フィルター
+        prefs_avail = [p for p in pref_order if p in comp_hist["prefecture"].unique()]
+        prefs_sel   = ["全県"] + prefs_avail
+        sel_pref = st.radio("都道府県（ワンクリック）", prefs_sel, horizontal=True,
+                            key=f"{key_prefix}_pref")
+        fh1, fh2 = st.columns(2)
+        with fh1:
+            cats = ["全カテゴリー"] + sorted(comp_hist["cause_category"].unique().tolist())
+            sel_cat = st.selectbox("起因カテゴリー", cats, key=f"{key_prefix}_cat")
+        with fh2:
+            weather_opts = ["全て（絞り込まない）"] + list(WEATHER_FLAG_CONFIG.keys())
+            sel_weather  = st.selectbox("起因フラグ フィルター", weather_opts,
+                                        key=f"{key_prefix}_weather")
+
+        dfc = comp_hist.copy()
+        if sel_pref  != "全県":            dfc = dfc[dfc["prefecture"]     == sel_pref]
+        if sel_cat   != "全カテゴリー":    dfc = dfc[dfc["cause_category"] == sel_cat]
+        if sel_weather != "全て（絞り込まない）":
+            dfc = dfc[dfc["weather_flag"].str.contains(sel_weather, regex=False, na=False)]
+
+        # 起因フラグ サマリーバー
+        wf_counts, total_cnt = _weather_summary_bar(dfc)
+
+        # KPI
+        dfc = dfc.copy()
+        dfc["_primary_flag"] = dfc["weather_flag"].str.split("|").str[0]
+
+        hk1, hk2, hk3, hk4 = st.columns(4)
+        with hk1: st.metric("停電件数",    f"{dfc['incidents'].sum():,} 件")
+        with hk2: st.metric("停電軒数合計", f"{dfc['affected_customers'].sum():,} 軒")
+        with hk3: st.metric("停電時間合計", f"{dfc['total_outage_hours'].sum():,.1f} h")
+        with hk4:
+            nat_rows = dfc["weather_flag"].apply(
+                lambda x: any(f in str(x).split("|") for f in ["天候", "樹木・倒木"])
+            ).sum()
+            nat_pct = nat_rows / total_cnt * 100 if total_cnt > 0 else 0
+            st.metric("自然起因の割合", f"{nat_pct:.0f} %",
+                      help="天候 または 樹木・倒木 フラグを含む件数の割合")
+
+        st.markdown("")
+
+        # グラフ行1: 日別トレンド + 起因フラグドーナツ
+        g1, g2 = st.columns([3, 2])
+        with g1:
+            st.markdown('<div class="section-title">日別 停電件数推移（起因フラグ別）</div>',
+                        unsafe_allow_html=True)
+            wcolor = {k: v["badge_bg"] for k, v in WEATHER_FLAG_CONFIG.items()}
+            daily_w = (
+                dfc.groupby(["date_label", "_primary_flag"])["incidents"]
+                .sum().reset_index()
+                .rename(columns={"incidents": "件数", "_primary_flag": "起因フラグ"})
+                .sort_values("date_label")
+            )
+            fig_daily = px.bar(daily_w, x="date_label", y="件数", color="起因フラグ",
+                               color_discrete_map=wcolor, barmode="stack",
+                               labels={"date_label": "発生日", "件数": "停電件数"})
+            fig_daily.update_layout(
+                height=310, hovermode="x unified",
+                legend=dict(orientation="h", y=1.1, title=""),
+                margin=dict(t=10, b=10), plot_bgcolor="white", paper_bgcolor="white",
+            )
+            fig_daily.update_xaxes(showgrid=False, tickangle=-45)
+            fig_daily.update_yaxes(gridcolor="#f3f4f6")
+            st.plotly_chart(fig_daily, use_container_width=True)
+
+        with g2:
+            st.markdown('<div class="section-title">起因フラグ 内訳</div>',
+                        unsafe_allow_html=True)
+            wf_df = pd.DataFrame(
+                [{"区分": k, "件数": v} for k, v in wf_counts.items()
+                 if k in WEATHER_FLAG_CONFIG]
+            )
+            if not wf_df.empty:
+                fig_wpie = go.Figure(go.Pie(
+                    labels=wf_df["区分"], values=wf_df["件数"],
+                    marker_colors=[WEATHER_FLAG_CONFIG.get(f, {}).get("badge_bg", "#9ca3af")
+                                   for f in wf_df["区分"]],
+                    hole=0.5, textinfo="percent+label",
+                    hovertemplate="<b>%{label}</b><br>%{value}件 (%{percent})<extra></extra>",
+                ))
+                fig_wpie.update_layout(height=310, margin=dict(t=10, b=10), showlegend=False)
+                st.plotly_chart(fig_wpie, use_container_width=True)
+
+        # グラフ行2: 都道府県別 + 起因原文 Top10
+        g3, g4 = st.columns(2)
+        with g3:
+            st.markdown('<div class="section-title">都道府県別 停電件数・軒数</div>',
+                        unsafe_allow_html=True)
+            pref_agg = (
+                dfc.groupby("prefecture")
+                .agg(件数=("incidents", "sum"), 軒数=("affected_customers", "sum"))
+                .reindex(pref_order).fillna(0).reset_index()
+            )
+            fig_pref_d = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_pref_d.add_trace(
+                go.Bar(x=pref_agg["prefecture"], y=pref_agg["軒数"],
+                       name="停電軒数",
+                       marker_color=[pref_colors.get(p, "#9ca3af")
+                                     for p in pref_agg["prefecture"]],
+                       opacity=0.8),
+                secondary_y=False,
+            )
+            fig_pref_d.add_trace(
+                go.Scatter(x=pref_agg["prefecture"], y=pref_agg["件数"],
+                           name="停電件数", mode="markers+lines",
+                           marker=dict(size=8, color="#7c3aed"),
+                           line=dict(color="#7c3aed", width=2)),
+                secondary_y=True,
+            )
+            fig_pref_d.update_layout(
+                height=310, hovermode="x unified",
+                legend=dict(orientation="h", y=1.1),
+                margin=dict(t=10, b=10), plot_bgcolor="white", paper_bgcolor="white",
+            )
+            fig_pref_d.update_xaxes(showgrid=False)
+            fig_pref_d.update_yaxes(title_text="停電軒数", secondary_y=False,
+                                    gridcolor="#f3f4f6", tickformat=",")
+            fig_pref_d.update_yaxes(title_text="停電件数", secondary_y=True, showgrid=False)
+            st.plotly_chart(fig_pref_d, use_container_width=True)
+
+        with g4:
+            st.markdown('<div class="section-title">起因（原文）別 件数 Top10</div>',
+                        unsafe_allow_html=True)
+            raw_agg = (
+                dfc.groupby(["raw_reason", "_primary_flag"])["incidents"]
+                .sum().reset_index()
+                .rename(columns={"incidents": "件数"})
+                .sort_values("件数", ascending=True).tail(10)
+            )
+            fig_raw = go.Figure(go.Bar(
+                x=raw_agg["件数"], y=raw_agg["raw_reason"],
+                orientation="h",
+                marker_color=[WEATHER_FLAG_CONFIG.get(f, {}).get("badge_bg", "#9ca3af")
+                              for f in raw_agg["_primary_flag"]],
+                text=raw_agg["件数"], textposition="outside",
+            ))
+            fig_raw.update_layout(
+                height=310, margin=dict(t=10, b=10, r=40),
+                plot_bgcolor="white", paper_bgcolor="white",
+                xaxis=dict(gridcolor="#f3f4f6"), yaxis=dict(showgrid=False),
+            )
+            st.plotly_chart(fig_raw, use_container_width=True)
+
+        # 都道府県 × 日付 ヒートマップ
+        if len(pref_order) > 1:
+            st.markdown('<div class="section-title">都道府県 × 発生日 停電件数ヒートマップ</div>',
+                        unsafe_allow_html=True)
+            heat = (
+                dfc.groupby(["prefecture", "date_label"])["incidents"]
+                .sum().reset_index()
+                .pivot(index="prefecture", columns="date_label", values="incidents").fillna(0)
+                .reindex([p for p in pref_order if p in dfc["prefecture"].unique()])
+            )
+            if not heat.empty:
+                fig_ht = go.Figure(go.Heatmap(
+                    z=heat.values, x=heat.columns.tolist(), y=heat.index.tolist(),
+                    colorscale="Blues",
+                    hovertemplate="<b>%{y}</b>  %{x}<br>停電件数: %{z:.0f}件<extra></extra>",
+                    colorbar=dict(title="停電件数"),
+                ))
+                fig_ht.update_layout(
+                    height=280, margin=dict(t=10, b=10),
+                    xaxis=dict(showgrid=False, tickangle=-45),
+                    yaxis=dict(showgrid=False),
+                )
+                st.plotly_chart(fig_ht, use_container_width=True)
+
+        # 詳細テーブル
+        st.markdown(
+            '<div class="section-title">停電記録一覧 ※列ヘッダーをクリックでソート</div>',
+            unsafe_allow_html=True,
+        )
+        disp_cols = {
+            "date_label":         "発生日",
+            "prefecture":         "都道府県",
+            "raw_reason":         "起因（原文）",
+            "weather_flag":       "起因フラグ",
+            "affected_customers": "停電軒数",
+            "total_outage_hours": "停電時間(h)",
+            "cause_category":     "カテゴリー",
+        }
+        disp = (
+            dfc[[c for c in disp_cols if c in dfc.columns]]
+            .rename(columns={c: v for c, v in disp_cols.items() if c in dfc.columns})
+            .sort_values(["発生日", "都道府県"], ascending=[False, True])
+            .reset_index(drop=True)
+        )
+        _TH = "background:#dbeafe; color:#1e3a8a; font-size:0.75rem; font-weight:700; padding:8px 10px; white-space:nowrap;"
+        _TD_g = "border-bottom:1px solid #f0f4ff; padding:8px 10px; font-size:0.8rem; vertical-align:top;"
+        head_html = "".join(f'<th style="{_TH}">{c}</th>' for c in disp.columns)
+        rows_html  = ""
+        for ri, row in disp.iterrows():
+            bg = "#fafcff" if ri % 2 == 0 else "white"
+            cells = ""
+            for col, val in row.items():
+                cells += f'<td style="{_TD_g}">{_html.escape(str(val))}</td>'
+            rows_html += f'<tr style="background:{bg};">{cells}</tr>'
+        st.markdown(
+            '<div style="overflow:auto; max-height:460px; border:1px solid #dbeafe;'
+            ' border-radius:10px; background:white;">'
+            '<table style="width:100%; border-collapse:collapse;">'
+            f"<thead><tr>{head_html}</tr></thead>"
+            f"<tbody>{rows_html}</tbody>"
+            "</table></div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f'<div style="font-size:0.75rem; color:#9ca3af; margin-top:8px;">'
+            f'データ取得元: <a href="{hist_url}" target="_blank" style="color:#3b82f6;">'
+            f'{company_name} 停電履歴ページ</a>'
+            f'&ensp;|&ensp;対象期間: {n_hist_days}</div>',
+            unsafe_allow_html=True,
+        )
+
+
 # ─── タブ ─────────────────────────────────────────────────────
-tab_rt, tab_cause, tab_tohoku, tab_hist = st.tabs([
+tab_rt, tab_cause, tab_companies, tab_hist = st.tabs([
     "🔴 リアルタイム停電情報",
     "🔍 事故起因 集計（実データ）",
-    "🏔️ 東北電力NW 詳細",
+    "🏢 各社 詳細",
     "📊 過去1年の停電実績（参考）",
 ])
 
@@ -440,7 +930,7 @@ tab_rt, tab_cause, tab_tohoku, tab_hist = st.tabs([
 # ═══════════════════════════════════════════════════
 with tab_rt:
     with st.spinner("各電力ネットワーク会社から情報を取得中..."):
-        df_rt = fetch_all_realtime()
+        df_rt = load_realtime_data()
 
     active  = df_rt[df_rt["affected_customers"] > 0]
     ok_cnt  = (df_rt["data_status"] == "取得済み").sum()
@@ -519,16 +1009,16 @@ with tab_rt:
     st.markdown('<div class="section-title">データ取得元（各電力ネットワーク会社公式サイト）</div>',
                 unsafe_allow_html=True)
     sources = [
-        ("東北電力ネットワーク",   "https://nw.tohoku-epco.co.jp/teideninfo/",          "青森/岩手/宮城/秋田/山形/福島/新潟",        True),
+        ("北海道電力ネットワーク", "https://teiden-info.hepco.co.jp/",                  "北海道",                                         True),
+        ("東北電力ネットワーク",   "https://nw.tohoku-epco.co.jp/teideninfo/",          "青森/岩手/宮城/秋田/山形/福島/新潟",             True),
+        ("北陸電力送配電",         "https://www.rikuden.co.jp/nw/teiden/otj010.html",   "富山/石川/福井",                                 True),
+        ("中部電力パワーグリッド", "https://teiden.powergrid.chuden.co.jp/p/index.html", "愛知/長野（+三重/岐阜/静岡は他社分と重複）",    True),
+        ("東京電力パワーグリッド", "https://teideninfo.tepco.co.jp/",                    "茨城/栃木/群馬/埼玉/千葉/東京/神奈川/山梨/静岡", True),
         ("関西電力送配電",         "https://www.kansai-td.co.jp/teiden-info/index.php",  "滋賀/京都/大阪/兵庫/奈良/和歌山/福井/岐阜/三重", True),
-        ("四国電力送配電",         "https://www.yonden.co.jp/nw/teiden-info/index.html", "香川/愛媛/徳島/高知",                       True),
-        ("北海道電力ネットワーク", "http://teiden-info.hepco.co.jp/",                   "北海道",                                    False),
-        ("東京電力パワーグリッド", "https://teideninfo.tepco.co.jp/",                    "茨城/栃木/群馬/埼玉/千葉/東京/神奈川/山梨/静岡", False),
-        ("中部電力パワーグリッド", "https://teiden.powergrid.chuden.co.jp/p/",           "長野/愛知/静岡(一部)等",                    False),
-        ("北陸電力送配電",         "http://www.rikuden.co.jp/nw/teiden/otj010.html",     "富山/石川/福井(一部)",                      False),
-        ("中国電力ネットワーク",   "http://www.teideninfo.energia.co.jp/",               "鳥取/島根/岡山/広島/山口",                  False),
-        ("九州電力送配電",         "https://www.kyuden.co.jp/td_teiden_map/index.php/map/", "福岡/佐賀/長崎/熊本/大分/宮崎/鹿児島",  False),
-        ("沖縄電力",               "https://www.okidenmail.jp/bosai/info/index.html",    "沖縄",                                      False),
+        ("四国電力送配電",         "https://www.yonden.co.jp/nw/teiden-info/index.html", "香川/愛媛/徳島/高知",                            True),
+        ("中国電力ネットワーク",   "https://www.teideninfo.energia.co.jp/",              "鳥取/島根/岡山/広島/山口",                       True),
+        ("九州電力送配電",         "https://www.kyuden.co.jp/td_teiden/kyushu.html",     "福岡/佐賀/長崎/熊本/大分/宮崎/鹿児島",          True),
+        ("沖縄電力",               "https://www.okidenmail.jp/bosai/info/index.html",    "沖縄",                                           True),
     ]
     cols = st.columns(2)
     for i, (name, url, prefs, available) in enumerate(sources):
@@ -562,8 +1052,7 @@ with tab_cause:
             f'<span class="coverage-tag tag-ok">✓ {c}</span>' for c in covered
         )
         ng_companies = [
-            "北海道電力ネットワーク", "東京電力パワーグリッド", "中部電力パワーグリッド",
-            "北陸電力送配電", "中国電力ネットワーク", "九州電力送配電", "沖縄電力",
+            "中部電力パワーグリッド（起因なし）",
         ]
         ng_tags = "".join(
             f'<span class="coverage-tag tag-ng">✕ {c}</span>' for c in ng_companies
@@ -580,8 +1069,10 @@ with tab_cause:
         period_end   = df_hist_c["month_label"].max() if not df_hist_c.empty else "—"
         st.markdown(
             f"**対象期間:** {period_start} ～ {period_end}&ensp;|&ensp;"
-            f"取得元: 東北電力ネットワーク（過去31日）・関西電力送配電（過去7日）・四国電力送配電（件数のみ）",
-            help="四国電力は起因情報なし（起因=「不明」として集計）",
+            f"取得元: 北海道電力（過去7日）・東北電力（過去31日）・北陸電力（過去7日）・東京電力PG（過去60日）"
+            f"・関西電力（過去7日）・四国電力（件数のみ）・中国電力（過去7日）・九州電力（過去7日）・沖縄電力（過去数日）",
+            help="四国電力は起因情報なし（起因=「不明」として集計）。中部電力PGはリアルタイムのみ取得・履歴起因情報は非公開のため集計対象外。"
+                 "北陸電力はリアルタイム件数の都道府県別集計は対応外（停電有無のみ）。",
         )
 
         # ── フィルター ───────────────────────────────────────────
@@ -788,536 +1279,676 @@ with tab_cause:
 
 
 # ═══════════════════════════════════════════════════
-# タブ3: 東北電力ネットワーク 詳細
+# タブ3: 各社 詳細
 # ═══════════════════════════════════════════════════
-_TOHOKU_PREF_ORDER = ["青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "新潟県"]
-_TOHOKU_PREF_COLOR = {
-    "青森県": "#3b82f6", "岩手県": "#06b6d4", "宮城県": "#10b981",
-    "秋田県": "#f59e0b", "山形県": "#f97316", "福島県": "#ef4444", "新潟県": "#8b5cf6",
-}
+with tab_companies:
+    (ct_tohoku, ct_hokkaido, ct_rikuden, ct_chubu,
+     ct_tepco, ct_kansai, ct_shikoku, ct_chugoku,
+     ct_kyushu, ct_okinawa) = st.tabs([
+        "🏔️ 東北電力NW",
+        "🌨️ 北海道電力NW",
+        "⛰️ 北陸電力",
+        "🏭 中部電力PG",
+        "🗼 東京電力PG",
+        "⛩️ 関西電力",
+        "🌊 四国電力",
+        "🏯 中国電力NW",
+        "🌸 九州電力",
+        "🌺 沖縄電力",
+    ])
 
-with tab_tohoku:
-    sub_rt, sub_hist = st.tabs(["📡 リアルタイム状況", "📅 過去31日の履歴分析"])
+    _df_rt_comp   = load_realtime_data()
+    _df_hist_comp = load_history_data()
 
-    # ── サブタブ A: リアルタイム ────────────────────────────────
-    with sub_rt:
-        with st.spinner("東北電力ネットワークから情報を取得中..."):
-            t_counts, t_ts = load_tohoku_realtime()
+    # ── 東北電力NW (既存の詳細実装) ──────────────────────────
+    with ct_tohoku:
+        sub_rt, sub_hist = st.tabs(["📡 リアルタイム状況", "📅 過去31日の履歴分析"])
 
-        st.markdown(
-            f'<div style="font-size:0.8rem; color:#6b7280; margin-bottom:12px;">'
-            f'情報更新: <b>{t_ts or "—"}</b>&ensp;|&ensp;'
-            f'<a href="https://nw.tohoku-epco.co.jp/teideninfo/" target="_blank" style="color:#3b82f6">'
-            f'東北電力ネットワーク 停電情報ページ</a></div>',
-            unsafe_allow_html=True,
-        )
+        # ── サブタブ A: リアルタイム ────────────────────────────────
+        with sub_rt:
+            with st.spinner("東北電力ネットワークから情報を取得中..."):
+                t_counts, t_ts = load_tohoku_realtime()
 
-        # KPI
-        active_prefs = {k: v for k, v in t_counts.items() if v and v > 0}
-        total_t      = sum(v for v in t_counts.values() if v)
-        rt1, rt2, rt3 = st.columns(3)
-        with rt1:
-            st.markdown(f"""
-            <div class="kpi-card red">
-              <div class="kpi-label">停電中県数</div>
-              <div class="kpi-value">{len(active_prefs)}</div>
-              <div class="kpi-sub">/ 7 県（管内）</div>
-            </div>""", unsafe_allow_html=True)
-        with rt2:
-            st.markdown(f"""
-            <div class="kpi-card orange">
-              <div class="kpi-label">停電軒数（管内合計）</div>
-              <div class="kpi-value">{total_t:,}</div>
-              <div class="kpi-sub">軒</div>
-            </div>""", unsafe_allow_html=True)
-        with rt3:
-            max_pref = max(t_counts, key=lambda k: t_counts.get(k) or 0) if t_counts else "—"
-            max_val  = t_counts.get(max_pref, 0) or 0
-            st.markdown(f"""
-            <div class="kpi-card blue">
-              <div class="kpi-label">最多停電県</div>
-              <div class="kpi-value" style="font-size:1.3rem">{max_pref if max_val > 0 else "停電なし"}</div>
-              <div class="kpi-sub">{f"{max_val:,} 軒" if max_val > 0 else "全県停電なし"}</div>
-            </div>""", unsafe_allow_html=True)
-
-        st.markdown("")
-
-        # 都道府県別棒グラフ
-        st.markdown('<div class="section-title">都道府県別 現在の停電軒数</div>',
-                    unsafe_allow_html=True)
-        rows_t = []
-        for p in _TOHOKU_PREF_ORDER:
-            v = t_counts.get(p)
-            rows_t.append({
-                "都道府県": p,
-                "停電軒数": v if v is not None else 0,
-                "状態":     "停電中" if (v and v > 0) else ("取得不可" if v is None else "停電なし"),
-            })
-        df_rt_t = pd.DataFrame(rows_t)
-        color_map = {"停電中": "#ef4444", "停電なし": "#4ade80", "取得不可": "#cbd5e1"}
-        fig_rt_bar = px.bar(
-            df_rt_t, x="都道府県", y="停電軒数", color="状態",
-            color_discrete_map=color_map,
-            text="停電軒数",
-            category_orders={"都道府県": _TOHOKU_PREF_ORDER},
-        )
-        fig_rt_bar.update_traces(texttemplate="%{text:,}", textposition="outside")
-        fig_rt_bar.update_layout(
-            height=340, margin=dict(t=20, b=20),
-            plot_bgcolor="white", paper_bgcolor="white",
-            xaxis=dict(showgrid=False), yaxis=dict(gridcolor="#f3f4f6", tickformat=","),
-            showlegend=True, legend=dict(orientation="h", y=1.08),
-        )
-        st.plotly_chart(fig_rt_bar, use_container_width=True)
-
-        # 都道府県カード
-        st.markdown('<div class="section-title">都道府県別 詳細</div>', unsafe_allow_html=True)
-        cols_p = st.columns(7)
-        for idx, pref in enumerate(_TOHOKU_PREF_ORDER):
-            v = t_counts.get(pref)
-            if v is None:
-                bg, txt, val_str = "#f8fafc", "#64748b", "取得不可"
-            elif v == 0:
-                bg, txt, val_str = "#f0fdf4", "#16a34a", "0 軒"
-            elif v <= 1000:
-                bg, txt, val_str = "#fefce8", "#ca8a04", f"{v:,} 軒"
-            elif v <= 10000:
-                bg, txt, val_str = "#fff7ed", "#c2410c", f"{v:,} 軒"
-            else:
-                bg, txt, val_str = "#fef2f2", "#b91c1c", f"{v:,} 軒"
-            dot_c = _TOHOKU_PREF_COLOR.get(pref, "#6b7280")
-            with cols_p[idx]:
-                st.markdown(
-                    f'<div style="background:{bg}; border-radius:8px; padding:10px 8px;'
-                    f' text-align:center; border:1px solid #e5e7eb;">'
-                    f'<div style="width:10px;height:10px;border-radius:50%;background:{dot_c};'
-                    f' margin:0 auto 4px;"></div>'
-                    f'<div style="font-size:0.78rem; font-weight:700;">{pref}</div>'
-                    f'<div style="font-size:1rem; font-weight:700; color:{txt};'
-                    f' margin-top:4px;">{val_str}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-
-    # ── サブタブ B: 履歴分析 ────────────────────────────────────
-    with sub_hist:
-        with st.spinner("東北電力ネットワーク 過去31日データを取得中..."):
-            df_th = load_tohoku_detail()
-
-        if df_th.empty:
-            st.warning("履歴データの取得に失敗しました。")
-        else:
-            # ── フィルター ──────────────────────────────────────
-            prefs_sel = ["全県"] + _TOHOKU_PREF_ORDER
-            sel_pref_t = st.radio("都道府県（ワンクリック）", prefs_sel,
-                                  horizontal=True, key="tohoku_pref")
-
-            fh2, fh3 = st.columns(2)
-            with fh2:
-                cats_t = ["全カテゴリー"] + sorted(df_th["cause_category"].unique().tolist())
-                sel_cat_t = st.selectbox("起因カテゴリー", cats_t, key="tohoku_cat")
-            with fh3:
-                weather_opts = ["全て（絞り込まない）"] + list(WEATHER_FLAG_CONFIG.keys())
-                sel_weather = st.selectbox("起因フラグ フィルター", weather_opts, key="tohoku_weather")
-
-            dft = df_th.copy()
-            if sel_pref_t != "全県":
-                dft = dft[dft["pref_name"] == sel_pref_t]
-            if sel_cat_t != "全カテゴリー":
-                dft = dft[dft["cause_category"] == sel_cat_t]
-            if sel_weather != "全て（絞り込まない）":
-                dft = dft[dft["weather_flag"].str.contains(sel_weather, regex=False, na=False)]
-
-            # ── 起因フラグ サマリーバー ────────────────────────
-            # weather_flag は "|" 区切り複数フラグ → 個別フラグごとに集計
-            from collections import Counter as _Counter
-            _all_flags: list[str] = []
-            for _fs in dft["weather_flag"].fillna("不明"):
-                _all_flags.extend(_fs.split("|"))
-            wf_counts = _Counter(_all_flags)   # {フラグ名: 件数}
-            total_cnt = len(dft)
-            w_tags = ""
-            for flag, cfg in WEATHER_FLAG_CONFIG.items():
-                n   = wf_counts.get(flag, 0)
-                pct = f"{n/total_cnt*100:.0f}%" if total_cnt > 0 else "—"
-                w_tags += (
-                    f'<span style="display:inline-flex; align-items:center; gap:6px;'
-                    f' background:{cfg["bg"]}; color:{cfg["color"]}; border-radius:20px;'
-                    f' padding:4px 14px; font-size:0.78rem; font-weight:700;'
-                    f' margin-right:8px;">'
-                    f'{cfg["label"]} <span style="font-size:1rem;">{n}件</span>'
-                    f' <span style="opacity:.7;">({pct})</span></span>'
-                )
             st.markdown(
-                f'<div style="background:#f8fafc; border:1px solid #e5e7eb;'
-                f' border-radius:8px; padding:10px 14px; margin:10px 0 4px;">'
-                f'<span style="font-size:0.75rem; font-weight:700; color:#374151;'
-                f' margin-right:12px;">起因フラグ判定</span>{w_tags}</div>',
+                f'<div style="font-size:0.8rem; color:#6b7280; margin-bottom:12px;">'
+                f'情報更新: <b>{t_ts or "—"}</b>&ensp;|&ensp;'
+                f'<a href="https://nw.tohoku-epco.co.jp/teideninfo/" target="_blank" style="color:#3b82f6">'
+                f'東北電力ネットワーク 停電情報ページ</a></div>',
                 unsafe_allow_html=True,
             )
 
-            # ── KPI ─────────────────────────────────────────
-            # グラフ着色用にプライマリフラグ列を追加（"|"区切りの先頭フラグ）
-            dft = dft.copy()
-            dft["_primary_flag"] = dft["weather_flag"].str.split("|").str[0]
-
-            valid_dur = dft["duration_h"].dropna()
-            tk1, tk2, tk3, tk4 = st.columns(4)
-            with tk1: st.metric("停電件数",    f"{len(dft):,} 件")
-            with tk2: st.metric("停電軒数合計", f"{dft['count'].sum():,} 軒")
-            with tk3: st.metric("停電時間合計", f"{valid_dur.sum():,.1f} h")
-            with tk4:
-                nature_rows = dft["weather_flag"].apply(
-                    lambda x: any(f in str(x).split("|") for f in ["天候", "樹木・倒木"])
-                ).sum()
-                nature_pct = nature_rows / total_cnt * 100 if total_cnt > 0 else 0
-                st.metric("自然起因の割合", f"{nature_pct:.0f} %",
-                          help="天候 または 樹木・倒木 フラグを含む件数の割合")
+            # KPI
+            active_prefs = {k: v for k, v in t_counts.items() if v and v > 0}
+            total_t      = sum(v for v in t_counts.values() if v)
+            rt1, rt2, rt3 = st.columns(3)
+            with rt1:
+                st.markdown(f"""
+                <div class="kpi-card red">
+                  <div class="kpi-label">停電中県数</div>
+                  <div class="kpi-value">{len(active_prefs)}</div>
+                  <div class="kpi-sub">/ 7 県（管内）</div>
+                </div>""", unsafe_allow_html=True)
+            with rt2:
+                st.markdown(f"""
+                <div class="kpi-card orange">
+                  <div class="kpi-label">停電軒数（管内合計）</div>
+                  <div class="kpi-value">{total_t:,}</div>
+                  <div class="kpi-sub">軒</div>
+                </div>""", unsafe_allow_html=True)
+            with rt3:
+                max_pref = max(t_counts, key=lambda k: t_counts.get(k) or 0) if t_counts else "—"
+                max_val  = t_counts.get(max_pref, 0) or 0
+                st.markdown(f"""
+                <div class="kpi-card blue">
+                  <div class="kpi-label">最多停電県</div>
+                  <div class="kpi-value" style="font-size:1.3rem">{max_pref if max_val > 0 else "停電なし"}</div>
+                  <div class="kpi-sub">{f"{max_val:,} 軒" if max_val > 0 else "全県停電なし"}</div>
+                </div>""", unsafe_allow_html=True)
 
             st.markdown("")
 
-            # ── グラフ行1: 日別トレンド（起因プライマリフラグ別スタック）+ ドーナツ ──
-            g1, g2 = st.columns([3, 2])
-
-            with g1:
-                st.markdown('<div class="section-title">日別 停電件数推移（起因フラグ別）</div>',
-                            unsafe_allow_html=True)
-                wcolor = {k: v["badge_bg"] for k, v in WEATHER_FLAG_CONFIG.items()}
-                daily_w = (
-                    dft.groupby(["date_label", "_primary_flag"])["count"]
-                    .count().reset_index()
-                    .rename(columns={"count": "件数", "_primary_flag": "起因フラグ"})
-                    .sort_values("date_label")
-                )
-                fig_daily = px.bar(
-                    daily_w, x="date_label", y="件数", color="起因フラグ",
-                    color_discrete_map=wcolor, barmode="stack",
-                    labels={"date_label": "発生日", "件数": "停電件数"},
-                )
-                fig_daily.update_layout(
-                    height=320, hovermode="x unified",
-                    legend=dict(orientation="h", y=1.1, title=""),
-                    margin=dict(t=10, b=10), plot_bgcolor="white", paper_bgcolor="white",
-                )
-                fig_daily.update_xaxes(showgrid=False, tickangle=-45)
-                fig_daily.update_yaxes(gridcolor="#f3f4f6")
-                st.plotly_chart(fig_daily, use_container_width=True)
-
-            with g2:
-                st.markdown('<div class="section-title">起因フラグ 内訳（個別カウント）</div>',
-                            unsafe_allow_html=True)
-                # wf_counts は Counter（個別フラグごとの集計）
-                wf_df = pd.DataFrame(
-                    [{"区分": k, "件数": v} for k, v in wf_counts.items()
-                     if k in WEATHER_FLAG_CONFIG]
-                )
-                if wf_df.empty:
-                    st.info("データなし")
-                else:
-                    fig_wpie = go.Figure(go.Pie(
-                        labels=wf_df["区分"], values=wf_df["件数"],
-                        marker_colors=[WEATHER_FLAG_CONFIG.get(f, {}).get("badge_bg", "#9ca3af")
-                                       for f in wf_df["区分"]],
-                        hole=0.5, textinfo="percent+label",
-                        hovertemplate="<b>%{label}</b><br>%{value}件 (%{percent})<extra></extra>",
-                    ))
-                    fig_wpie.update_layout(height=320, margin=dict(t=10, b=10), showlegend=False)
-                    st.plotly_chart(fig_wpie, use_container_width=True)
-
-            # ── グラフ行2: 都道府県別 + 起因原文別 ──────────────
-            g3, g4 = st.columns(2)
-
-            with g3:
-                st.markdown('<div class="section-title">都道府県別 停電件数・軒数</div>',
-                            unsafe_allow_html=True)
-                pref_agg = (
-                    dft.groupby("pref_name")
-                    .agg(件数=("count", "count"), 軒数=("count", "sum"))
-                    .reindex(_TOHOKU_PREF_ORDER).fillna(0).reset_index()
-                )
-                fig_pref = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_pref.add_trace(
-                    go.Bar(x=pref_agg["pref_name"], y=pref_agg["軒数"],
-                           name="停電軒数",
-                           marker_color=[_TOHOKU_PREF_COLOR.get(p, "#9ca3af")
-                                         for p in pref_agg["pref_name"]],
-                           opacity=0.8),
-                    secondary_y=False,
-                )
-                fig_pref.add_trace(
-                    go.Scatter(x=pref_agg["pref_name"], y=pref_agg["件数"],
-                               name="停電件数", mode="markers+lines",
-                               marker=dict(size=8, color="#7c3aed"),
-                               line=dict(color="#7c3aed", width=2)),
-                    secondary_y=True,
-                )
-                fig_pref.update_layout(
-                    height=320, hovermode="x unified",
-                    legend=dict(orientation="h", y=1.1),
-                    margin=dict(t=10, b=10), plot_bgcolor="white", paper_bgcolor="white",
-                )
-                fig_pref.update_xaxes(showgrid=False)
-                fig_pref.update_yaxes(title_text="停電軒数", secondary_y=False,
-                                      gridcolor="#f3f4f6", tickformat=",")
-                fig_pref.update_yaxes(title_text="停電件数", secondary_y=True, showgrid=False)
-                st.plotly_chart(fig_pref, use_container_width=True)
-
-            with g4:
-                st.markdown('<div class="section-title">起因（原文）別 停電件数 Top10</div>',
-                            unsafe_allow_html=True)
-                raw_agg = (
-                    dft.groupby(["raw_reason", "_primary_flag"])["count"]
-                    .count().reset_index()
-                    .rename(columns={"count": "件数"})
-                    .sort_values("件数", ascending=True).tail(10)
-                )
-                fig_raw = go.Figure(go.Bar(
-                    x=raw_agg["件数"], y=raw_agg["raw_reason"],
-                    orientation="h",
-                    marker_color=[WEATHER_FLAG_CONFIG.get(f, {}).get("badge_bg", "#9ca3af")
-                                  for f in raw_agg["_primary_flag"]],
-                    text=raw_agg["件数"], textposition="outside",
-                ))
-                fig_raw.update_layout(
-                    height=320, margin=dict(t=10, b=10, r=40),
-                    plot_bgcolor="white", paper_bgcolor="white",
-                    xaxis=dict(gridcolor="#f3f4f6"), yaxis=dict(showgrid=False),
-                )
-                st.plotly_chart(fig_raw, use_container_width=True)
-
-            # ── 各県別トレンド ───────────────────────────────────
-            st.markdown('<div class="section-title">各県別 停電トレンド（過去31日）</div>',
+            # 都道府県別棒グラフ
+            st.markdown('<div class="section-title">都道府県別 現在の停電軒数</div>',
                         unsafe_allow_html=True)
-
-            _W_COLORS = {k: v["badge_bg"] for k, v in WEATHER_FLAG_CONFIG.items()}
-
-            # ── 比較折れ線グラフ（全7県 1チャート）────────────
-            tab_cnt, tab_vol = st.tabs(["📈 停電件数（折れ線）", "📊 停電軒数（棒グラフ）"])
-
-            with tab_cnt:
-                pref_daily_cnt = (
-                    dft.groupby(["date_label", "pref_name"])["count"]
-                    .count().reset_index()
-                    .rename(columns={"count": "件数"})
-                    .sort_values("date_label")
-                )
-                fig_pline = px.line(
-                    pref_daily_cnt, x="date_label", y="件数", color="pref_name",
-                    color_discrete_map=_TOHOKU_PREF_COLOR, markers=True,
-                    labels={"date_label": "発生日", "件数": "停電件数", "pref_name": "都道府県"},
-                )
-                fig_pline.update_layout(
-                    height=340, hovermode="x unified",
-                    legend=dict(orientation="h", y=1.08, title=""),
-                    margin=dict(t=20, b=10), plot_bgcolor="white", paper_bgcolor="white",
-                )
-                fig_pline.update_xaxes(showgrid=False, tickangle=-45)
-                fig_pline.update_yaxes(gridcolor="#f3f4f6", tickformat=",d")
-                st.plotly_chart(fig_pline, use_container_width=True)
-
-            with tab_vol:
-                pref_daily_vol = (
-                    dft.groupby(["date_label", "pref_name"])["count"]
-                    .sum().reset_index()
-                    .rename(columns={"count": "軒数"})
-                    .sort_values("date_label")
-                )
-                fig_pbar = px.bar(
-                    pref_daily_vol, x="date_label", y="軒数", color="pref_name",
-                    color_discrete_map=_TOHOKU_PREF_COLOR, barmode="stack",
-                    labels={"date_label": "発生日", "軒数": "停電軒数", "pref_name": "都道府県"},
-                )
-                fig_pbar.update_layout(
-                    height=340, hovermode="x unified",
-                    legend=dict(orientation="h", y=1.08, title=""),
-                    margin=dict(t=20, b=10), plot_bgcolor="white", paper_bgcolor="white",
-                )
-                fig_pbar.update_xaxes(showgrid=False, tickangle=-45)
-                fig_pbar.update_yaxes(gridcolor="#f3f4f6", tickformat=",")
-                st.plotly_chart(fig_pbar, use_container_width=True)
-
-            # ── 県別スモールマルチプル ─────────────────────────
-            st.markdown(
-                '<div style="font-size:0.82rem; font-weight:700; color:#374151;'
-                ' margin:14px 0 8px;">各県の日別件数（起因フラグ色分け）と集計サマリー</div>',
-                unsafe_allow_html=True,
+            rows_t = []
+            for p in _TOHOKU_PREF_ORDER:
+                v = t_counts.get(p)
+                rows_t.append({
+                    "都道府県": p,
+                    "停電軒数": v if v is not None else 0,
+                    "状態":     "停電中" if (v and v > 0) else ("取得不可" if v is None else "停電なし"),
+                })
+            df_rt_t = pd.DataFrame(rows_t)
+            color_map = {"停電中": "#ef4444", "停電なし": "#4ade80", "取得不可": "#cbd5e1"}
+            fig_rt_bar = px.bar(
+                df_rt_t, x="都道府県", y="停電軒数", color="状態",
+                color_discrete_map=color_map,
+                text="停電軒数",
+                category_orders={"都道府県": _TOHOKU_PREF_ORDER},
             )
+            fig_rt_bar.update_traces(texttemplate="%{text:,}", textposition="outside")
+            fig_rt_bar.update_layout(
+                height=340, margin=dict(t=20, b=20),
+                plot_bgcolor="white", paper_bgcolor="white",
+                xaxis=dict(showgrid=False), yaxis=dict(gridcolor="#f3f4f6", tickformat=","),
+                showlegend=True, legend=dict(orientation="h", y=1.08),
+            )
+            st.plotly_chart(fig_rt_bar, use_container_width=True)
 
-            # df_th全体（県フィルターなし）から各県データを作成
-            dft_all = df_th.copy()
-            # weather/categoryフィルターは維持
-            if sel_cat_t != "全カテゴリー":
-                dft_all = dft_all[dft_all["cause_category"] == sel_cat_t]
-            if sel_weather != "全て（絞り込まない）":
-                dft_all = dft_all[dft_all["weather_flag"].str.contains(
-                    sel_weather, regex=False, na=False)]
-
-            # スモールマルチプル用プライマリフラグ列を追加
-            dft_all = dft_all.copy()
-            dft_all["_primary_flag"] = dft_all["weather_flag"].str.split("|").str[0]
-
-            sm_cols = st.columns(4)
-            for p_idx, pref in enumerate(_TOHOKU_PREF_ORDER):
-                pf = dft_all[dft_all["pref_name"] == pref]
-                dot_color = _TOHOKU_PREF_COLOR.get(pref, "#6b7280")
-
-                # ミニバーチャートデータ（プライマリフラグで着色）
-                mini_data = (
-                    pf.groupby(["date_label", "_primary_flag"])["count"]
-                    .count().reset_index()
-                    .rename(columns={"count": "件数", "_primary_flag": "起因フラグ"})
-                    .sort_values("date_label")
-                )
-
-                # サマリー数値
-                total_inc  = len(pf)
-                total_vol  = int(pf["count"].sum())
-                nature_inc = pf["weather_flag"].apply(
-                    lambda x: any(f in str(x).split("|") for f in ["天候", "樹木・倒木"])
-                ).sum()
-                w_pct      = f"{nature_inc/total_inc*100:.0f}%" if total_inc > 0 else "—"
-                top_cause  = (
-                    pf[pf["raw_reason"].str.strip() != ""]["raw_reason"]
-                    .value_counts().index[0]
-                    if not pf[pf["raw_reason"].str.strip() != ""].empty else "—"
-                )
-
-                with sm_cols[p_idx % 4]:
-                    # カードヘッダー
+            # 都道府県カード
+            st.markdown('<div class="section-title">都道府県別 詳細</div>', unsafe_allow_html=True)
+            cols_p = st.columns(7)
+            for idx, pref in enumerate(_TOHOKU_PREF_ORDER):
+                v = t_counts.get(pref)
+                if v is None:
+                    bg, txt, val_str = "#f8fafc", "#64748b", "取得不可"
+                elif v == 0:
+                    bg, txt, val_str = "#f0fdf4", "#16a34a", "0 軒"
+                elif v <= 1000:
+                    bg, txt, val_str = "#fefce8", "#ca8a04", f"{v:,} 軒"
+                elif v <= 10000:
+                    bg, txt, val_str = "#fff7ed", "#c2410c", f"{v:,} 軒"
+                else:
+                    bg, txt, val_str = "#fef2f2", "#b91c1c", f"{v:,} 軒"
+                dot_c = _TOHOKU_PREF_COLOR.get(pref, "#6b7280")
+                with cols_p[idx]:
                     st.markdown(
-                        f'<div style="display:flex; align-items:center; gap:6px;'
-                        f' margin-bottom:4px;">'
-                        f'<div style="width:10px;height:10px;border-radius:50%;'
-                        f'background:{dot_color};flex-shrink:0;"></div>'
-                        f'<span style="font-weight:700; font-size:0.88rem;">{pref}</span>'
+                        f'<div style="background:{bg}; border-radius:8px; padding:10px 8px;'
+                        f' text-align:center; border:1px solid #e5e7eb;">'
+                        f'<div style="width:10px;height:10px;border-radius:50%;background:{dot_c};'
+                        f' margin:0 auto 4px;"></div>'
+                        f'<div style="font-size:0.78rem; font-weight:700;">{pref}</div>'
+                        f'<div style="font-size:1rem; font-weight:700; color:{txt};'
+                        f' margin-top:4px;">{val_str}</div>'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
 
-                    if total_inc == 0:
-                        st.markdown(
-                            '<div style="font-size:0.75rem; color:#9ca3af;'
-                            ' padding:8px; background:#f8fafc; border-radius:6px;'
-                            ' text-align:center; margin-bottom:12px;">'
-                            '該当データなし</div>',
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        # ミニチャート
-                        fig_mini = px.bar(
-                            mini_data, x="date_label", y="件数", color="起因フラグ",
-                            color_discrete_map=_W_COLORS, barmode="stack",
-                        )
-                        fig_mini.update_layout(
-                            height=130,
-                            margin=dict(t=2, b=2, l=2, r=2),
-                            showlegend=False,
-                            plot_bgcolor="white", paper_bgcolor="white",
-                        )
-                        fig_mini.update_xaxes(showticklabels=False, showgrid=False,
-                                              zeroline=False)
-                        fig_mini.update_yaxes(showticklabels=True, gridcolor="#f3f4f6",
-                                              tickformat=",d", nticks=3)
-                        st.plotly_chart(fig_mini, use_container_width=True,
-                                        key=f"mini_{pref}")
+        # ── サブタブ B: 履歴分析 ────────────────────────────────────
+        with sub_hist:
+            with st.spinner("東北電力ネットワーク 過去31日データを取得中..."):
+                df_th = load_tohoku_detail()
 
-                        # 統計サマリー
-                        st.markdown(
-                            f'<div style="background:#f8fafc; border-radius:6px;'
-                            f' padding:7px 10px; font-size:0.73rem; margin-bottom:14px;">'
-                            f'<div style="display:grid; grid-template-columns:1fr 1fr;'
-                            f' gap:3px;">'
-                            f'<div><span style="color:#6b7280;">件数</span>'
-                            f' <b>{total_inc:,}</b></div>'
-                            f'<div><span style="color:#6b7280;">軒数</span>'
-                            f' <b>{total_vol:,}</b></div>'
-                            f'<div><span style="color:#6b7280;">自然起因</span>'
-                            f' <b style="color:#0369a1;">'
-                            f'{w_pct}</b></div>'
-                            f'<div style="grid-column:span 2;'
-                            f' color:#6b7280; margin-top:2px;">'
-                            f'主因: <b style="color:#374151;">{top_cause[:16]}</b></div>'
-                            f'</div></div>',
-                            unsafe_allow_html=True,
-                        )
+            if df_th.empty:
+                st.warning("履歴データの取得に失敗しました。")
+            else:
+                # ── フィルター ──────────────────────────────────────
+                prefs_sel = ["全県"] + _TOHOKU_PREF_ORDER
+                sel_pref_t = st.radio("都道府県（ワンクリック）", prefs_sel,
+                                      horizontal=True, key="tohoku_pref")
 
-            # 4列に7県なので最後の列に空白パディング（5〜7番目がない列）
-            for pad in range(len(_TOHOKU_PREF_ORDER) % 4, 4 if len(_TOHOKU_PREF_ORDER) % 4 else 0):
-                with sm_cols[3 - pad]:
-                    st.empty()
+                fh2, fh3 = st.columns(2)
+                with fh2:
+                    cats_t = ["全カテゴリー"] + sorted(df_th["cause_category"].unique().tolist())
+                    sel_cat_t = st.selectbox("起因カテゴリー", cats_t, key="tohoku_cat")
+                with fh3:
+                    weather_opts = ["全て（絞り込まない）"] + list(WEATHER_FLAG_CONFIG.keys())
+                    sel_weather = st.selectbox("起因フラグ フィルター", weather_opts, key="tohoku_weather")
 
-            # ── 都道府県 × 日付 ヒートマップ ───────────────────
-            st.markdown('<div class="section-title">都道府県 × 発生日 停電件数ヒートマップ</div>',
-                        unsafe_allow_html=True)
-            heat_t = (
-                dft.groupby(["pref_name", "date_label"])["count"]
-                .count().reset_index()
-                .rename(columns={"count": "件数"})
-                .pivot(index="pref_name", columns="date_label", values="件数").fillna(0)
-                .reindex(_TOHOKU_PREF_ORDER)
-            )
-            if not heat_t.empty:
-                fig_ht = go.Figure(go.Heatmap(
-                    z=heat_t.values,
-                    x=heat_t.columns.tolist(),
-                    y=heat_t.index.tolist(),
-                    colorscale="YlOrRd",
-                    hovertemplate="<b>%{y}</b>  %{x}<br>停電件数: %{z:.0f}件<extra></extra>",
-                    colorbar=dict(title="停電件数"),
-                ))
-                fig_ht.update_layout(
-                    height=320, margin=dict(t=10, b=10),
-                    xaxis=dict(showgrid=False, tickangle=-45),
-                    yaxis=dict(showgrid=False),
+                dft = df_th.copy()
+                if sel_pref_t != "全県":
+                    dft = dft[dft["pref_name"] == sel_pref_t]
+                if sel_cat_t != "全カテゴリー":
+                    dft = dft[dft["cause_category"] == sel_cat_t]
+                if sel_weather != "全て（絞り込まない）":
+                    dft = dft[dft["weather_flag"].str.contains(sel_weather, regex=False, na=False)]
+
+                # ── 起因フラグ サマリーバー ────────────────────────
+                # weather_flag は "|" 区切り複数フラグ → 個別フラグごとに集計
+                from collections import Counter as _Counter
+                _all_flags: list[str] = []
+                for _fs in dft["weather_flag"].fillna("不明"):
+                    _all_flags.extend(_fs.split("|"))
+                wf_counts = _Counter(_all_flags)   # {フラグ名: 件数}
+                total_cnt = len(dft)
+                w_tags = ""
+                for flag, cfg in WEATHER_FLAG_CONFIG.items():
+                    n   = wf_counts.get(flag, 0)
+                    pct = f"{n/total_cnt*100:.0f}%" if total_cnt > 0 else "—"
+                    w_tags += (
+                        f'<span style="display:inline-flex; align-items:center; gap:6px;'
+                        f' background:{cfg["bg"]}; color:{cfg["color"]}; border-radius:20px;'
+                        f' padding:4px 14px; font-size:0.78rem; font-weight:700;'
+                        f' margin-right:8px;">'
+                        f'{cfg["label"]} <span style="font-size:1rem;">{n}件</span>'
+                        f' <span style="opacity:.7;">({pct})</span></span>'
+                    )
+                st.markdown(
+                    f'<div style="background:#f8fafc; border:1px solid #e5e7eb;'
+                    f' border-radius:8px; padding:10px 14px; margin:10px 0 4px;">'
+                    f'<span style="font-size:0.75rem; font-weight:700; color:#374151;'
+                    f' margin-right:12px;">起因フラグ判定</span>{w_tags}</div>',
+                    unsafe_allow_html=True,
                 )
-                st.plotly_chart(fig_ht, use_container_width=True)
 
-            # ── 詳細テーブル ─────────────────────────────────────
-            st.markdown(
-                '<div class="section-title">停電記録一覧 ※列ヘッダーをクリックでソート</div>',
-                unsafe_allow_html=True,
-            )
-            # weather_flag 列が旧キャッシュで欠落している場合は補完
-            if "weather_flag" not in dft.columns:
-                from scraper import _classify_weather as _cw
+                # ── KPI ─────────────────────────────────────────
+                # グラフ着色用にプライマリフラグ列を追加（"|"区切りの先頭フラグ）
                 dft = dft.copy()
-                dft["weather_flag"] = dft["raw_reason"].apply(_cw)
+                dft["_primary_flag"] = dft["weather_flag"].str.split("|").str[0]
 
-            disp_t = (
-                dft[[
-                    "date_label", "pref_name", "area_name",
-                    "raw_reason", "weather_flag",
-                    "count", "start_time", "recovery_time", "duration_h",
-                ]]
-                .rename(columns={
-                    "date_label":   "発生日",
-                    "pref_name":    "都道府県",
-                    "area_name":    "停電地域",
-                    "raw_reason":   "起因（原文）",
-                    "weather_flag": "起因フラグ",
-                    "count":        "停電軒数",
-                    "start_time":   "発生時刻",
-                    "recovery_time": "復旧時刻",
-                    "duration_h":   "停電時間(h)",
-                })
-                .sort_values(["発生日", "都道府県"], ascending=[False, True])
-                .reset_index(drop=True)
-            )
+                valid_dur = dft["duration_h"].dropna()
+                tk1, tk2, tk3, tk4 = st.columns(4)
+                with tk1: st.metric("停電件数",    f"{len(dft):,} 件")
+                with tk2: st.metric("停電軒数合計", f"{dft['count'].sum():,} 軒")
+                with tk3: st.metric("停電時間合計", f"{valid_dur.sum():,.1f} h")
+                with tk4:
+                    nature_rows = dft["weather_flag"].apply(
+                        lambda x: any(f in str(x).split("|") for f in ["天候", "樹木・倒木"])
+                    ).sum()
+                    nature_pct = nature_rows / total_cnt * 100 if total_cnt > 0 else 0
+                    st.metric("自然起因の割合", f"{nature_pct:.0f} %",
+                              help="天候 または 樹木・倒木 フラグを含む件数の割合")
 
-            st.markdown(
-                build_outage_table_html(disp_t),
-                unsafe_allow_html=True,
-            )
+                st.markdown("")
 
-            # データ取得元リンク
-            st.markdown(
-                '<div style="font-size:0.75rem; color:#9ca3af; margin-top:8px;">'
-                'データ取得元: '
-                '<a href="https://nw.tohoku-epco.co.jp/teideninfo/rireki.html" '
-                'target="_blank" style="color:#3b82f6">東北電力ネットワーク 停電履歴ページ</a>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+                # ── グラフ行1: 日別トレンド（起因プライマリフラグ別スタック）+ ドーナツ ──
+                g1, g2 = st.columns([3, 2])
+
+                with g1:
+                    st.markdown('<div class="section-title">日別 停電件数推移（起因フラグ別）</div>',
+                                unsafe_allow_html=True)
+                    wcolor = {k: v["badge_bg"] for k, v in WEATHER_FLAG_CONFIG.items()}
+                    daily_w = (
+                        dft.groupby(["date_label", "_primary_flag"])["count"]
+                        .count().reset_index()
+                        .rename(columns={"count": "件数", "_primary_flag": "起因フラグ"})
+                        .sort_values("date_label")
+                    )
+                    fig_daily = px.bar(
+                        daily_w, x="date_label", y="件数", color="起因フラグ",
+                        color_discrete_map=wcolor, barmode="stack",
+                        labels={"date_label": "発生日", "件数": "停電件数"},
+                    )
+                    fig_daily.update_layout(
+                        height=320, hovermode="x unified",
+                        legend=dict(orientation="h", y=1.1, title=""),
+                        margin=dict(t=10, b=10), plot_bgcolor="white", paper_bgcolor="white",
+                    )
+                    fig_daily.update_xaxes(showgrid=False, tickangle=-45)
+                    fig_daily.update_yaxes(gridcolor="#f3f4f6")
+                    st.plotly_chart(fig_daily, use_container_width=True)
+
+                with g2:
+                    st.markdown('<div class="section-title">起因フラグ 内訳（個別カウント）</div>',
+                                unsafe_allow_html=True)
+                    # wf_counts は Counter（個別フラグごとの集計）
+                    wf_df = pd.DataFrame(
+                        [{"区分": k, "件数": v} for k, v in wf_counts.items()
+                         if k in WEATHER_FLAG_CONFIG]
+                    )
+                    if wf_df.empty:
+                        st.info("データなし")
+                    else:
+                        fig_wpie = go.Figure(go.Pie(
+                            labels=wf_df["区分"], values=wf_df["件数"],
+                            marker_colors=[WEATHER_FLAG_CONFIG.get(f, {}).get("badge_bg", "#9ca3af")
+                                           for f in wf_df["区分"]],
+                            hole=0.5, textinfo="percent+label",
+                            hovertemplate="<b>%{label}</b><br>%{value}件 (%{percent})<extra></extra>",
+                        ))
+                        fig_wpie.update_layout(height=320, margin=dict(t=10, b=10), showlegend=False)
+                        st.plotly_chart(fig_wpie, use_container_width=True)
+
+                # ── グラフ行2: 都道府県別 + 起因原文別 ──────────────
+                g3, g4 = st.columns(2)
+
+                with g3:
+                    st.markdown('<div class="section-title">都道府県別 停電件数・軒数</div>',
+                                unsafe_allow_html=True)
+                    pref_agg = (
+                        dft.groupby("pref_name")
+                        .agg(件数=("count", "count"), 軒数=("count", "sum"))
+                        .reindex(_TOHOKU_PREF_ORDER).fillna(0).reset_index()
+                    )
+                    fig_pref = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_pref.add_trace(
+                        go.Bar(x=pref_agg["pref_name"], y=pref_agg["軒数"],
+                               name="停電軒数",
+                               marker_color=[_TOHOKU_PREF_COLOR.get(p, "#9ca3af")
+                                             for p in pref_agg["pref_name"]],
+                               opacity=0.8),
+                        secondary_y=False,
+                    )
+                    fig_pref.add_trace(
+                        go.Scatter(x=pref_agg["pref_name"], y=pref_agg["件数"],
+                                   name="停電件数", mode="markers+lines",
+                                   marker=dict(size=8, color="#7c3aed"),
+                                   line=dict(color="#7c3aed", width=2)),
+                        secondary_y=True,
+                    )
+                    fig_pref.update_layout(
+                        height=320, hovermode="x unified",
+                        legend=dict(orientation="h", y=1.1),
+                        margin=dict(t=10, b=10), plot_bgcolor="white", paper_bgcolor="white",
+                    )
+                    fig_pref.update_xaxes(showgrid=False)
+                    fig_pref.update_yaxes(title_text="停電軒数", secondary_y=False,
+                                          gridcolor="#f3f4f6", tickformat=",")
+                    fig_pref.update_yaxes(title_text="停電件数", secondary_y=True, showgrid=False)
+                    st.plotly_chart(fig_pref, use_container_width=True)
+
+                with g4:
+                    st.markdown('<div class="section-title">起因（原文）別 停電件数 Top10</div>',
+                                unsafe_allow_html=True)
+                    raw_agg = (
+                        dft.groupby(["raw_reason", "_primary_flag"])["count"]
+                        .count().reset_index()
+                        .rename(columns={"count": "件数"})
+                        .sort_values("件数", ascending=True).tail(10)
+                    )
+                    fig_raw = go.Figure(go.Bar(
+                        x=raw_agg["件数"], y=raw_agg["raw_reason"],
+                        orientation="h",
+                        marker_color=[WEATHER_FLAG_CONFIG.get(f, {}).get("badge_bg", "#9ca3af")
+                                      for f in raw_agg["_primary_flag"]],
+                        text=raw_agg["件数"], textposition="outside",
+                    ))
+                    fig_raw.update_layout(
+                        height=320, margin=dict(t=10, b=10, r=40),
+                        plot_bgcolor="white", paper_bgcolor="white",
+                        xaxis=dict(gridcolor="#f3f4f6"), yaxis=dict(showgrid=False),
+                    )
+                    st.plotly_chart(fig_raw, use_container_width=True)
+
+                # ── 各県別トレンド ───────────────────────────────────
+                st.markdown('<div class="section-title">各県別 停電トレンド（過去31日）</div>',
+                            unsafe_allow_html=True)
+
+                _W_COLORS = {k: v["badge_bg"] for k, v in WEATHER_FLAG_CONFIG.items()}
+
+                # ── 比較折れ線グラフ（全7県 1チャート）────────────
+                tab_cnt, tab_vol = st.tabs(["📈 停電件数（折れ線）", "📊 停電軒数（棒グラフ）"])
+
+                with tab_cnt:
+                    pref_daily_cnt = (
+                        dft.groupby(["date_label", "pref_name"])["count"]
+                        .count().reset_index()
+                        .rename(columns={"count": "件数"})
+                        .sort_values("date_label")
+                    )
+                    fig_pline = px.line(
+                        pref_daily_cnt, x="date_label", y="件数", color="pref_name",
+                        color_discrete_map=_TOHOKU_PREF_COLOR, markers=True,
+                        labels={"date_label": "発生日", "件数": "停電件数", "pref_name": "都道府県"},
+                    )
+                    fig_pline.update_layout(
+                        height=340, hovermode="x unified",
+                        legend=dict(orientation="h", y=1.08, title=""),
+                        margin=dict(t=20, b=10), plot_bgcolor="white", paper_bgcolor="white",
+                    )
+                    fig_pline.update_xaxes(showgrid=False, tickangle=-45)
+                    fig_pline.update_yaxes(gridcolor="#f3f4f6", tickformat=",d")
+                    st.plotly_chart(fig_pline, use_container_width=True)
+
+                with tab_vol:
+                    pref_daily_vol = (
+                        dft.groupby(["date_label", "pref_name"])["count"]
+                        .sum().reset_index()
+                        .rename(columns={"count": "軒数"})
+                        .sort_values("date_label")
+                    )
+                    fig_pbar = px.bar(
+                        pref_daily_vol, x="date_label", y="軒数", color="pref_name",
+                        color_discrete_map=_TOHOKU_PREF_COLOR, barmode="stack",
+                        labels={"date_label": "発生日", "軒数": "停電軒数", "pref_name": "都道府県"},
+                    )
+                    fig_pbar.update_layout(
+                        height=340, hovermode="x unified",
+                        legend=dict(orientation="h", y=1.08, title=""),
+                        margin=dict(t=20, b=10), plot_bgcolor="white", paper_bgcolor="white",
+                    )
+                    fig_pbar.update_xaxes(showgrid=False, tickangle=-45)
+                    fig_pbar.update_yaxes(gridcolor="#f3f4f6", tickformat=",")
+                    st.plotly_chart(fig_pbar, use_container_width=True)
+
+                # ── 県別スモールマルチプル ─────────────────────────
+                st.markdown(
+                    '<div style="font-size:0.82rem; font-weight:700; color:#374151;'
+                    ' margin:14px 0 8px;">各県の日別件数（起因フラグ色分け）と集計サマリー</div>',
+                    unsafe_allow_html=True,
+                )
+
+                # df_th全体（県フィルターなし）から各県データを作成
+                dft_all = df_th.copy()
+                # weather/categoryフィルターは維持
+                if sel_cat_t != "全カテゴリー":
+                    dft_all = dft_all[dft_all["cause_category"] == sel_cat_t]
+                if sel_weather != "全て（絞り込まない）":
+                    dft_all = dft_all[dft_all["weather_flag"].str.contains(
+                        sel_weather, regex=False, na=False)]
+
+                # スモールマルチプル用プライマリフラグ列を追加
+                dft_all = dft_all.copy()
+                dft_all["_primary_flag"] = dft_all["weather_flag"].str.split("|").str[0]
+
+                sm_cols = st.columns(4)
+                for p_idx, pref in enumerate(_TOHOKU_PREF_ORDER):
+                    pf = dft_all[dft_all["pref_name"] == pref]
+                    dot_color = _TOHOKU_PREF_COLOR.get(pref, "#6b7280")
+
+                    # ミニバーチャートデータ（プライマリフラグで着色）
+                    mini_data = (
+                        pf.groupby(["date_label", "_primary_flag"])["count"]
+                        .count().reset_index()
+                        .rename(columns={"count": "件数", "_primary_flag": "起因フラグ"})
+                        .sort_values("date_label")
+                    )
+
+                    # サマリー数値
+                    total_inc  = len(pf)
+                    total_vol  = int(pf["count"].sum())
+                    nature_inc = pf["weather_flag"].apply(
+                        lambda x: any(f in str(x).split("|") for f in ["天候", "樹木・倒木"])
+                    ).sum()
+                    w_pct      = f"{nature_inc/total_inc*100:.0f}%" if total_inc > 0 else "—"
+                    top_cause  = (
+                        pf[pf["raw_reason"].str.strip() != ""]["raw_reason"]
+                        .value_counts().index[0]
+                        if not pf[pf["raw_reason"].str.strip() != ""].empty else "—"
+                    )
+
+                    with sm_cols[p_idx % 4]:
+                        # カードヘッダー
+                        st.markdown(
+                            f'<div style="display:flex; align-items:center; gap:6px;'
+                            f' margin-bottom:4px;">'
+                            f'<div style="width:10px;height:10px;border-radius:50%;'
+                            f'background:{dot_color};flex-shrink:0;"></div>'
+                            f'<span style="font-weight:700; font-size:0.88rem;">{pref}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        if total_inc == 0:
+                            st.markdown(
+                                '<div style="font-size:0.75rem; color:#9ca3af;'
+                                ' padding:8px; background:#f8fafc; border-radius:6px;'
+                                ' text-align:center; margin-bottom:12px;">'
+                                '該当データなし</div>',
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            # ミニチャート
+                            fig_mini = px.bar(
+                                mini_data, x="date_label", y="件数", color="起因フラグ",
+                                color_discrete_map=_W_COLORS, barmode="stack",
+                            )
+                            fig_mini.update_layout(
+                                height=130,
+                                margin=dict(t=2, b=2, l=2, r=2),
+                                showlegend=False,
+                                plot_bgcolor="white", paper_bgcolor="white",
+                            )
+                            fig_mini.update_xaxes(showticklabels=False, showgrid=False,
+                                                  zeroline=False)
+                            fig_mini.update_yaxes(showticklabels=True, gridcolor="#f3f4f6",
+                                                  tickformat=",d", nticks=3)
+                            st.plotly_chart(fig_mini, use_container_width=True,
+                                            key=f"mini_{pref}")
+
+                            # 統計サマリー
+                            st.markdown(
+                                f'<div style="background:#f8fafc; border-radius:6px;'
+                                f' padding:7px 10px; font-size:0.73rem; margin-bottom:14px;">'
+                                f'<div style="display:grid; grid-template-columns:1fr 1fr;'
+                                f' gap:3px;">'
+                                f'<div><span style="color:#6b7280;">件数</span>'
+                                f' <b>{total_inc:,}</b></div>'
+                                f'<div><span style="color:#6b7280;">軒数</span>'
+                                f' <b>{total_vol:,}</b></div>'
+                                f'<div><span style="color:#6b7280;">自然起因</span>'
+                                f' <b style="color:#0369a1;">'
+                                f'{w_pct}</b></div>'
+                                f'<div style="grid-column:span 2;'
+                                f' color:#6b7280; margin-top:2px;">'
+                                f'主因: <b style="color:#374151;">{top_cause[:16]}</b></div>'
+                                f'</div></div>',
+                                unsafe_allow_html=True,
+                            )
+
+                # 4列に7県なので最後の列に空白パディング（5〜7番目がない列）
+                for pad in range(len(_TOHOKU_PREF_ORDER) % 4, 4 if len(_TOHOKU_PREF_ORDER) % 4 else 0):
+                    with sm_cols[3 - pad]:
+                        st.empty()
+
+                # ── 都道府県 × 日付 ヒートマップ ───────────────────
+                st.markdown('<div class="section-title">都道府県 × 発生日 停電件数ヒートマップ</div>',
+                            unsafe_allow_html=True)
+                heat_t = (
+                    dft.groupby(["pref_name", "date_label"])["count"]
+                    .count().reset_index()
+                    .rename(columns={"count": "件数"})
+                    .pivot(index="pref_name", columns="date_label", values="件数").fillna(0)
+                    .reindex(_TOHOKU_PREF_ORDER)
+                )
+                if not heat_t.empty:
+                    fig_ht = go.Figure(go.Heatmap(
+                        z=heat_t.values,
+                        x=heat_t.columns.tolist(),
+                        y=heat_t.index.tolist(),
+                        colorscale="YlOrRd",
+                        hovertemplate="<b>%{y}</b>  %{x}<br>停電件数: %{z:.0f}件<extra></extra>",
+                        colorbar=dict(title="停電件数"),
+                    ))
+                    fig_ht.update_layout(
+                        height=320, margin=dict(t=10, b=10),
+                        xaxis=dict(showgrid=False, tickangle=-45),
+                        yaxis=dict(showgrid=False),
+                    )
+                    st.plotly_chart(fig_ht, use_container_width=True)
+
+                # ── 詳細テーブル ─────────────────────────────────────
+                st.markdown(
+                    '<div class="section-title">停電記録一覧 ※列ヘッダーをクリックでソート</div>',
+                    unsafe_allow_html=True,
+                )
+                # weather_flag 列が旧キャッシュで欠落している場合は補完
+                if "weather_flag" not in dft.columns:
+                    from scraper import _classify_weather as _cw
+                    dft = dft.copy()
+                    dft["weather_flag"] = dft["raw_reason"].apply(_cw)
+
+                disp_t = (
+                    dft[[
+                        "date_label", "pref_name", "area_name",
+                        "raw_reason", "weather_flag",
+                        "count", "start_time", "recovery_time", "duration_h",
+                    ]]
+                    .rename(columns={
+                        "date_label":   "発生日",
+                        "pref_name":    "都道府県",
+                        "area_name":    "停電地域",
+                        "raw_reason":   "起因（原文）",
+                        "weather_flag": "起因フラグ",
+                        "count":        "停電軒数",
+                        "start_time":   "発生時刻",
+                        "recovery_time": "復旧時刻",
+                        "duration_h":   "停電時間(h)",
+                    })
+                    .sort_values(["発生日", "都道府県"], ascending=[False, True])
+                    .reset_index(drop=True)
+                )
+
+                st.markdown(
+                    build_outage_table_html(disp_t),
+                    unsafe_allow_html=True,
+                )
+
+                # データ取得元リンク
+                st.markdown(
+                    '<div style="font-size:0.75rem; color:#9ca3af; margin-top:8px;">'
+                    'データ取得元: '
+                    '<a href="https://nw.tohoku-epco.co.jp/teideninfo/rireki.html" '
+                    'target="_blank" style="color:#3b82f6">東北電力ネットワーク 停電履歴ページ</a>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+
+    # ── 北海道電力NW ──────────────────────────────────────────
+    with ct_hokkaido:
+        render_company_detail(
+            company_name="北海道電力ネットワーク",
+            pref_order=_HOKKAIDO_PREF_ORDER,
+            pref_colors=_HOKKAIDO_PREF_COLOR,
+            rt_url="https://teiden-info.hepco.co.jp/",
+            hist_url="https://teiden-info.hepco.co.jp/past00000000.html",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="hokkaido",
+            n_hist_days="過去7日",
+        )
+
+    # ── 北陸電力送配電 ────────────────────────────────────────
+    with ct_rikuden:
+        render_company_detail(
+            company_name="北陸電力送配電",
+            pref_order=_RIKUDEN_PREF_ORDER,
+            pref_colors=_RIKUDEN_PREF_COLOR,
+            rt_url="https://www.rikuden.co.jp/nw/teiden/otj010.html",
+            hist_url="https://www.rikuden.co.jp/nw/teiden/otj600.html",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="rikuden",
+            n_hist_days="過去7日",
+        )
+
+    # ── 東京電力パワーグリッド ────────────────────────────────
+    with ct_tepco:
+        render_company_detail(
+            company_name="東京電力パワーグリッド",
+            pref_order=_TEPCO_PREF_ORDER,
+            pref_colors=_TEPCO_PREF_COLOR,
+            rt_url="https://teideninfo.tepco.co.jp/",
+            hist_url="https://teideninfo.tepco.co.jp/day/history.html",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="tepco",
+            n_hist_days="過去60日",
+        )
+
+    # ── 関西電力送配電 ────────────────────────────────────────
+    with ct_kansai:
+        render_company_detail(
+            company_name="関西電力送配電",
+            pref_order=_KANSAI_PREF_ORDER,
+            pref_colors=_KANSAI_PREF_COLOR,
+            rt_url="https://www.kansai-td.co.jp/teiden-info/index.php",
+            hist_url="https://www.kansai-td.co.jp/teiden-info/index.php",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="kansai",
+            n_hist_days="過去7日",
+        )
+
+    # ── 四国電力送配電 ────────────────────────────────────────
+    with ct_shikoku:
+        render_company_detail(
+            company_name="四国電力送配電",
+            pref_order=_SHIKOKU_PREF_ORDER,
+            pref_colors=_SHIKOKU_PREF_COLOR,
+            rt_url="https://www.yonden.co.jp/nw/teiden-info/index.html",
+            hist_url="https://www.yonden.co.jp/nw/teiden-info/history.html",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="shikoku",
+            n_hist_days="過去31日（件数のみ・起因なし）",
+        )
+
+    # ── 中国電力ネットワーク ──────────────────────────────────
+    with ct_chugoku:
+        render_company_detail(
+            company_name="中国電力ネットワーク",
+            pref_order=_CHUGOKU_PREF_ORDER,
+            pref_colors=_CHUGOKU_PREF_COLOR,
+            rt_url="https://www.teideninfo.energia.co.jp/",
+            hist_url="https://www.teideninfo.energia.co.jp/LWC30040/index",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="chugoku",
+            n_hist_days="過去7日",
+        )
+
+    # ── 中部電力パワーグリッド ────────────────────────────────
+    with ct_chubu:
+        render_company_detail(
+            company_name="中部電力パワーグリッド",
+            pref_order=_CHUBU_PREF_ORDER,
+            pref_colors=_CHUBU_PREF_COLOR,
+            rt_url="https://teiden.powergrid.chuden.co.jp/p/index.html",
+            hist_url="https://teiden.powergrid.chuden.co.jp/p/index.html",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="chubu",
+            n_hist_days="（履歴・起因情報は非公開）",
+        )
+
+    # ── 九州電力送配電 ────────────────────────────────────────
+    with ct_kyushu:
+        render_company_detail(
+            company_name="九州電力送配電",
+            pref_order=_KYUSHU_PREF_ORDER,
+            pref_colors=_KYUSHU_PREF_COLOR,
+            rt_url="https://www.kyuden.co.jp/td_teiden/kyushu.html",
+            hist_url="https://www.kyuden.co.jp/td_teiden/",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="kyushu",
+            n_hist_days="過去7日",
+        )
+
+    # ── 沖縄電力 ──────────────────────────────────────────────
+    with ct_okinawa:
+        render_company_detail(
+            company_name="沖縄電力",
+            pref_order=_OKINAWA_PREF_ORDER,
+            pref_colors=_OKINAWA_PREF_COLOR,
+            rt_url="https://www.okidenmail.jp/bosai/info/index.html",
+            hist_url="https://www.okidenmail.jp/bosai/info/index.html",
+            df_rt=_df_rt_comp,
+            df_hist=_df_hist_comp,
+            key_prefix="okinawa",
+            n_hist_days="過去数日（JS動的レンダリングのため取得制限あり）",
+        )
 
 
 # ═══════════════════════════════════════════════════
