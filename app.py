@@ -319,15 +319,25 @@ def pref_list_wide_html(df: pd.DataFrame) -> str:
             '<div style="font-size:0.72rem; font-weight:700; color:#ef4444;'
             ' margin-bottom:8px; display:flex; align-items:center; gap:6px;">'
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-            'background:#ef4444;"></span>停電中</div>'
+            'background:#ef4444;"></span>停電中'
+            '<span style="font-size:0.68rem; font-weight:400; color:#9ca3af;">'
+            '（クリックで各社サイトへ）</span></div>'
             '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">'
         )
         for _, r in active.iterrows():
             bg    = LEVEL_COLORS.get(r["outage_level"], "#fbbf24")
             txt_c = "#fff" if r["outage_level"] in ["10,000軒以上", "〜10,000軒"] else "#1e293b"
+            url   = _COMPANY_URLS.get(str(r.get("data_source", "")), "#")
             html += (
-                f'<div style="background:{bg};border-radius:8px;padding:8px 14px;'
-                f'min-width:120px;box-shadow:0 1px 6px rgba(0,0,0,0.1);">'
+                f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
+                f' style="background:{bg};border-radius:8px;padding:8px 14px;'
+                f'min-width:120px;box-shadow:0 1px 6px rgba(0,0,0,0.1);'
+                f'text-decoration:none;display:block;'
+                f'transition:transform 0.15s,box-shadow 0.15s;"'
+                f' onmouseover="this.style.transform=\'scale(1.04)\';'
+                f'this.style.boxShadow=\'0 4px 14px rgba(0,0,0,0.18)\'"'
+                f' onmouseout="this.style.transform=\'scale(1)\';'
+                f'this.style.boxShadow=\'0 1px 6px rgba(0,0,0,0.1)\'">'
                 f'<div style="font-size:0.82rem;font-weight:700;color:{txt_c};">'
                 f'{r["prefecture"]}</div>'
                 f'<div style="font-size:1.1rem;font-weight:700;color:{txt_c};">'
@@ -335,7 +345,7 @@ def pref_list_wide_html(df: pd.DataFrame) -> str:
                 f'<span style="font-size:0.7rem;font-weight:400;"> 軒</span></div>'
                 f'<div style="font-size:0.68rem;color:{txt_c};opacity:0.8;">'
                 f'{r["outage_level"]}</div>'
-                f'</div>'
+                f'</a>'
             )
         html += '</div>'
 
@@ -346,10 +356,13 @@ def pref_list_wide_html(df: pd.DataFrame) -> str:
             '<div style="display:flex; flex-wrap:wrap; gap:5px;">'
         )
         for _, r in no_data.sort_values("prefecture").iterrows():
+            url = _COMPANY_URLS.get(str(r.get("data_source", "")), "#")
             html += (
-                f'<span style="background:#f1f5f9;border-radius:5px;padding:3px 8px;'
-                f'font-size:0.7rem;color:#64748b;border:1px solid #e2e8f0;">'
-                f'{r["prefecture"]}</span>'
+                f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
+                f' style="background:#f1f5f9;border-radius:5px;padding:3px 8px;'
+                f'font-size:0.7rem;color:#64748b;border:1px solid #e2e8f0;'
+                f'text-decoration:none;">'
+                f'{r["prefecture"]}</a>'
             )
         html += '</div>'
 
@@ -1216,35 +1229,6 @@ with tab_rt:
     )
     st.markdown(build_company_map_html(df_rt), unsafe_allow_html=True)
 
-    # ── データ取得元リンク ───────────────────────────
-    st.markdown('<div class="section-title">データ取得元（各電力ネットワーク会社公式サイト）</div>',
-                unsafe_allow_html=True)
-    sources = [
-        ("北海道電力ネットワーク", "https://teiden-info.hepco.co.jp/",                  "北海道",                                         True),
-        ("東北電力ネットワーク",   "https://nw.tohoku-epco.co.jp/teideninfo/",          "青森/岩手/宮城/秋田/山形/福島/新潟",             True),
-        ("北陸電力送配電",         "https://www.rikuden.co.jp/nw/teiden/otj010.html",   "富山/石川/福井",                                 True),
-        ("中部電力パワーグリッド", "https://teiden.powergrid.chuden.co.jp/p/index.html", "愛知/長野（+三重/岐阜/静岡は他社分と重複）",    True),
-        ("東京電力パワーグリッド", "https://teideninfo.tepco.co.jp/",                    "茨城/栃木/群馬/埼玉/千葉/東京/神奈川/山梨/静岡", True),
-        ("関西電力送配電",         "https://www.kansai-td.co.jp/teiden-info/index.php",  "滋賀/京都/大阪/兵庫/奈良/和歌山/福井/岐阜/三重", True),
-        ("四国電力送配電",         "https://www.yonden.co.jp/nw/teiden-info/index.html", "香川/愛媛/徳島/高知",                            True),
-        ("中国電力ネットワーク",   "https://www.teideninfo.energia.co.jp/",              "鳥取/島根/岡山/広島/山口",                       True),
-        ("九州電力送配電",         "https://www.kyuden.co.jp/td_teiden/kyushu.html",     "福岡/佐賀/長崎/熊本/大分/宮崎/鹿児島",          True),
-        ("沖縄電力",               "https://www.okidenmail.jp/bosai/info/index.html",    "沖縄",                                           True),
-    ]
-    cols = st.columns(2)
-    for i, (name, url, prefs, available) in enumerate(sources):
-        badge = "✅ 取得済み" if available else "⬜ 直接確認"
-        color = "#dcfce7" if available else "#f1f5f9"
-        fc    = "#166534" if available else "#64748b"
-        with cols[i % 2]:
-            st.markdown(
-                f'<div style="background:{color}; border-radius:8px; padding:10px 14px; margin-bottom:8px;">'
-                f'<span style="font-size:0.72rem; font-weight:700; color:{fc}">{badge}</span> '
-                f'<a href="{url}" target="_blank" style="font-weight:600; font-size:0.88rem; color:#1e293b; text-decoration:none;">{name}</a>'
-                f'<div style="font-size:0.7rem; color:#6b7280; margin-top:3px;">{prefs}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
 
 
 # ═══════════════════════════════════════════════════
