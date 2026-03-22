@@ -430,41 +430,62 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
     ts_ms     = int(time.time() * 1000)
     index_url = f"{_CHUBU_BASE_URL}/resource/disclose/xml/index.xml?{ts_ms}"
     area_url  = f"{_CHUBU_BASE_URL}/resource/xml/teiden_area.xml?{ts_ms}"
-    referer   = f"{_CHUBU_BASE_URL}/index.html"
-    hdrs      = {**_HEADERS, "Referer": referer}
+    top_url   = f"{_CHUBU_BASE_URL}/index.html"
     result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
     ts = ""
-    try:
-        area_r = requests.get(area_url, headers=hdrs, timeout=10)
-        area_r.encoding = "utf-8"
-        area_soup = BeautifulSoup(area_r.text, "xml")
-        dt_node = area_soup.find("data_make_d")
-        if dt_node and dt_node.text:
-            raw = dt_node.text.strip()  # e.g. "2026/03/10 20:41"
-            try:
-                dt = datetime.strptime(raw, "%Y/%m/%d %H:%M")
-                ts = dt.strftime("%Y年%m月%d日 %H:%M")
-            except Exception:
-                ts = raw
 
-        idx_r = requests.get(index_url, headers=hdrs, timeout=10)
-        idx_r.raise_for_status()
-        idx_r.encoding = "utf-8"
-        idx_soup = BeautifulSoup(idx_r.text, "xml")
-        for area in idx_soup.find_all("area"):
-            addr_node = area.find("address")
-            kosu_node = area.find("genzai_teiden_kosu")
-            if addr_node and kosu_node:
-                pref = addr_node.text.strip()
-                if pref in result:
+    # セッションを使いトップページで Cookie を取得してから XML を取得する
+    sess = requests.Session()
+    sess.headers.update({**_HEADERS, "Referer": top_url})
+
+    for attempt in range(2):           # 最大2回リトライ
+        try:
+            # トップページにアクセスしてセッション確立（初回のみ）
+            if attempt == 0:
+                try:
+                    sess.get(top_url, timeout=15, verify=True)
+                except Exception:
+                    pass  # セッション確立失敗は無視して続行
+
+            # タイムスタンプ取得
+            try:
+                area_r = sess.get(area_url, timeout=20, verify=True)
+                area_r.encoding = "utf-8"
+                area_soup = BeautifulSoup(area_r.text, "xml")
+                dt_node = area_soup.find("data_make_d")
+                if dt_node and dt_node.text:
+                    raw = dt_node.text.strip()
                     try:
-                        result[pref] = int(kosu_node.text.strip().replace(",", ""))
+                        dt_parsed = datetime.strptime(raw, "%Y/%m/%d %H:%M")
+                        ts = dt_parsed.strftime("%Y年%m月%d日 %H:%M")
                     except Exception:
-                        pass
-        return result, ts
-    except Exception as exc:
-        logger.warning("中部電力PG取得失敗: %s", exc)
-        return {p: None for p in _CHUBU_PREFS}, ""
+                        ts = raw
+            except Exception:
+                pass  # タイムスタンプ取得失敗は無視して続行
+
+            # 停電件数 XML 取得
+            idx_r = sess.get(index_url, timeout=20, verify=True)
+            idx_r.raise_for_status()
+            idx_r.encoding = "utf-8"
+            idx_soup = BeautifulSoup(idx_r.text, "xml")
+            for area in idx_soup.find_all("area"):
+                addr_node = area.find("address")
+                kosu_node = area.find("genzai_teiden_kosu")
+                if addr_node and kosu_node:
+                    pref = addr_node.text.strip()
+                    if pref in result:
+                        try:
+                            result[pref] = int(kosu_node.text.strip().replace(",", ""))
+                        except Exception:
+                            pass
+            return result, ts
+
+        except Exception as exc:
+            logger.warning("中部電力PG取得失敗 (attempt %d): %s", attempt + 1, exc)
+            if attempt == 0:
+                time.sleep(2)   # リトライ前に少し待機
+
+    return {p: None for p in _CHUBU_PREFS}, ""
 
 
 # ── 北陸電力送配電 ────────────────────────────────────────────────────────────
