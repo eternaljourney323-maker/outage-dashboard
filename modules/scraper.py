@@ -475,10 +475,13 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
                 if addr_node and kosu_node:
                     pref = addr_node.text.strip()
                     if pref in result:
-                        try:
-                            result[pref] = int(kosu_node.text.strip().replace(",", ""))
-                        except Exception:
-                            pass
+                        # 値は「約1340戸」形式なので数字部分を正規表現で抽出
+                        nums = re.findall(r"[\d,]+", kosu_node.text)
+                        if nums:
+                            try:
+                                result[pref] = int(nums[0].replace(",", ""))
+                            except ValueError:
+                                pass
             return result, ts
 
         except Exception as exc:
