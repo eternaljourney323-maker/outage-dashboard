@@ -100,6 +100,11 @@ _OKINAWA_BASE_URL = "https://www.okidenmail.jp"
 # 中部電力パワーグリッド
 _CHUBU_PREFS    = ["愛知県", "三重県", "岐阜県", "静岡県", "長野県"]
 _CHUBU_BASE_URL = "https://teiden.powergrid.chuden.co.jp/p"
+# WAFブロック時のフォールバック: GitHub Actionsがdata-cacheブランチに書き込むキャッシュ
+_CHUBU_CACHE_URL = (
+    "https://raw.githubusercontent.com/"
+    "eternaljourney323-maker/outage-dashboard/data-cache/cache/chubu.json"
+)
 
 # 北陸電力送配電
 _RIKUDEN_PREFS    = ["富山県", "石川県", "福井県"]
@@ -533,6 +538,21 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
                            attempt + 1, status, type(exc).__name__, exc)
             if attempt == 0:
                 time.sleep(3)
+
+    # 直接取得失敗 → GitHub Actionsキャッシュへフォールバック
+    try:
+        cache_r = requests.get(_CHUBU_CACHE_URL, timeout=10)
+        cache_r.raise_for_status()
+        data = cache_r.json()
+        result = {p: data["result"].get(p) for p in _CHUBU_PREFS}
+        fetched_at = data.get("fetched_at", "")
+        ts = data.get("ts", "")
+        if fetched_at:
+            ts = f"{ts}（キャッシュ）"
+        logger.warning("中部電力PG: キャッシュ使用 fetched_at=%s", fetched_at)
+        return result, ts
+    except Exception as exc:
+        logger.warning("中部電力PG キャッシュ取得失敗: %s", exc)
 
     return {p: None for p in _CHUBU_PREFS}, ""
 

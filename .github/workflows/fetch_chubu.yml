@@ -30,9 +30,12 @@ jobs:
         run: pip install requests beautifulsoup4 lxml curl_cffi
 
       - name: Fetch Chubu data
+        id: fetch
         run: python scripts/fetch_chubu_cache.py
+        continue-on-error: true
 
       - name: Commit and push cache
+        if: steps.fetch.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

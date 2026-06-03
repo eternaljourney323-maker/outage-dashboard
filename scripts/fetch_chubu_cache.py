@@ -1,5 +1,6 @@
 """
 GitHub Actions から実行: 中部電力PGの停電データを取得して cache/chubu.json に保存する。
+取得失敗時はファイルを書き込まず exit(1) で終了する（既存キャッシュを保護）。
 """
 import json
 import re
@@ -42,7 +43,8 @@ for k in ("Upgrade-Insecure-Requests", "sec-fetch-user"):
     _XHR_HDRS.pop(k, None)
 
 
-def fetch() -> dict:
+def fetch():
+    """取得成功時は dict を返す。失敗時は None を返す。"""
     top_url = f"{BASE_URL}/index.html"
     try:
         session.get(top_url, headers=_NAV_HDRS, timeout=15)
@@ -83,25 +85,25 @@ def fetch() -> dict:
                 ts = datetime.strptime(raw, "%Y/%m/%d %H:%M").strftime("%Y年%m月%d日 %H:%M")
             except Exception:
                 ts = raw
-    except Exception as e:
-        print(f"fetch error: {e}")
 
-    return {
-        "result": result,
-        "ts": ts,
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-    }
+        return {
+            "result": result,
+            "ts": ts,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        print(f"FETCH FAILED: {e}")
+        return None
 
 
 if __name__ == "__main__":
     import pathlib
     data = fetch()
+    if data is None:
+        print("FETCH FAILED - cache not updated")
+        exit(1)
     print(json.dumps(data, ensure_ascii=False, indent=2))
     out = pathlib.Path(__file__).parent.parent / "cache" / "chubu.json"
     out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Saved to {out}")
-    if any(v is not None for v in data["result"].values()):
-        print("SUCCESS")
-    else:
-        print("FETCH FAILED - all None")
-        exit(1)
+    print("SUCCESS")
