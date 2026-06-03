@@ -428,12 +428,7 @@ def fetch_tepco_history(max_days: int = 31) -> list[dict]:
 
 def fetch_chubu() -> tuple[dict[str, int], str]:
     """中部電力パワーグリッドのリアルタイム停電情報を取得（愛知/三重/岐阜/静岡/長野）"""
-    ts_ms     = int(time.time() * 1000)
-    top_url   = f"{_CHUBU_BASE_URL}/index.html"
-    index_url = f"{_CHUBU_BASE_URL}/resource/disclose/xml/index.xml?{ts_ms}"
-    area_url  = f"{_CHUBU_BASE_URL}/resource/xml/teiden_area.xml?{ts_ms}"
-    result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
-    ts = ""
+    top_url = f"{_CHUBU_BASE_URL}/index.html"
 
     # WAF回避: ブラウザの完全なセッションを模倣（sec-fetch-* ヘッダー付き）
     _nav_hdrs = {
@@ -462,51 +457,68 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
     for k in ("Upgrade-Insecure-Requests", "sec-fetch-user"):
         _xhr_hdrs.pop(k, None)
 
-    session = requests.Session()
+    for attempt in range(2):
+        ts_ms     = int(time.time() * 1000)
+        index_url = f"{_CHUBU_BASE_URL}/resource/disclose/xml/index.xml?{ts_ms}"
+        area_url  = f"{_CHUBU_BASE_URL}/resource/xml/teiden_area.xml?{ts_ms}"
+        result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
+        ts = ""
 
-    # Step 1: トップページ訪問でセッション・Cookie確立
-    try:
-        session.get(top_url, headers=_nav_hdrs, timeout=15)
-    except Exception:
-        pass
+        session = requests.Session()
 
-    # Step 2: タイムスタンプ取得
-    try:
-        area_r = session.get(area_url, headers=_xhr_hdrs, timeout=20)
-        area_r.encoding = "utf-8"
-        area_soup = BeautifulSoup(area_r.text, "xml")
-        dt_node = area_soup.find("data_make_d")
-        if dt_node and dt_node.text:
-            raw = dt_node.text.strip()
-            try:
-                ts = datetime.strptime(raw, "%Y/%m/%d %H:%M").strftime("%Y年%m月%d日 %H:%M")
-            except Exception:
-                ts = raw
-    except Exception:
-        pass
+        # Step 1: トップページ訪問でセッション・Cookie確立
+        try:
+            session.get(top_url, headers=_nav_hdrs, timeout=15)
+        except Exception:
+            pass
 
-    # Step 3: 停電件数 XML 取得（値は「約1340戸」形式なので正規表現で数字を抽出）
-    try:
-        idx_r = session.get(index_url, headers=_xhr_hdrs, timeout=20)
-        idx_r.raise_for_status()
-        idx_r.encoding = "utf-8"
-        idx_soup = BeautifulSoup(idx_r.text, "xml")
-        for area in idx_soup.find_all("area"):
-            addr_node = area.find("address")
-            kosu_node = area.find("genzai_teiden_kosu")
-            if addr_node and kosu_node:
-                pref = addr_node.text.strip()
-                if pref in result:
-                    nums = re.findall(r"[\d,]+", kosu_node.text)
-                    if nums:
-                        try:
-                            result[pref] = int(nums[0].replace(",", ""))
-                        except ValueError:
-                            pass
-        return result, ts
-    except Exception as exc:
-        logger.warning("中部電力PG取得失敗: %s: %s", type(exc).__name__, exc)
-        return {p: None for p in _CHUBU_PREFS}, ""
+        # Step 2: タイムスタンプ取得
+        try:
+            area_r = session.get(area_url, headers=_xhr_hdrs, timeout=20)
+            area_r.encoding = "utf-8"
+            area_soup = BeautifulSoup(area_r.text, "xml")
+            dt_node = area_soup.find("data_make_d")
+            if dt_node and dt_node.text:
+                raw = dt_node.text.strip()
+                try:
+                    ts = datetime.strptime(raw, "%Y/%m/%d %H:%M").strftime("%Y年%m月%d日 %H:%M")
+                except Exception:
+                    ts = raw
+        except Exception:
+            pass
+
+        # Step 3: 停電件数 XML 取得（値は「約1340戸」形式なので正規表現で数字を抽出）
+        try:
+            idx_r = session.get(index_url, headers=_xhr_hdrs, timeout=20)
+            idx_r.raise_for_status()
+            idx_r.encoding = "utf-8"
+            # WAFがHTMLエラーページを返した場合は XML として認識できない
+            content_type = idx_r.headers.get("Content-Type", "")
+            if "html" in content_type and "xml" not in content_type:
+                raise ValueError(f"WAFブロック疑い: Content-Type={content_type}")
+            idx_soup = BeautifulSoup(idx_r.text, "xml")
+            areas = idx_soup.find_all("area")
+            if not areas:
+                raise ValueError("XMLにareaタグなし（WAFブロックまたは形式変更の可能性）")
+            for area in areas:
+                addr_node = area.find("address")
+                kosu_node = area.find("genzai_teiden_kosu")
+                if addr_node and kosu_node:
+                    pref = addr_node.text.strip()
+                    if pref in result:
+                        nums = re.findall(r"[\d,]+", kosu_node.text)
+                        if nums:
+                            try:
+                                result[pref] = int(nums[0].replace(",", ""))
+                            except ValueError:
+                                pass
+            return result, ts
+        except Exception as exc:
+            logger.warning("中部電力PG取得失敗 (attempt %d/2): %s: %s", attempt + 1, type(exc).__name__, exc)
+            if attempt == 0:
+                time.sleep(3)
+
+    return {p: None for p in _CHUBU_PREFS}, ""
 
 
 # ── 北陸電力送配電 ────────────────────────────────────────────────────────────
@@ -1423,10 +1435,13 @@ def fetch_all_realtime() -> pd.DataFrame:
             try:
                 source_name, source_url, pref_counts, ts = fut.result()
                 for pref_name, count in pref_counts.items():
-                    fetched[pref_name] = {
-                        "count": count, "source": source_name,
-                        "source_url": source_url, "ts": ts,
-                    }
+                    existing = fetched.get(pref_name)
+                    # 有効データ（non-None）を None で上書きしない（複数社カバレッジのレースコンディション対策）
+                    if existing is None or existing["count"] is None or count is not None:
+                        fetched[pref_name] = {
+                            "count": count, "source": source_name,
+                            "source_url": source_url, "ts": ts,
+                        }
             except Exception as exc:
                 source_name, _ = futs[fut]
                 logger.warning("並列リアルタイム取得失敗 %s: %s", source_name, exc)
