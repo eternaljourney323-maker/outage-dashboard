@@ -1,0 +1,38 @@
+name: Fetch Chubu Electric Cache
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # 5分ごと
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout data-cache branch
+        uses: actions/checkout@v4
+        with:
+          ref: data-cache
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml curl_cffi
+
+      - name: Fetch Chubu data
+        run: python scripts/fetch_chubu_cache.py
+
+      - name: Commit and push cache
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache/chubu.json
+          git diff --staged --quiet && echo "No changes" || git commit -m "Update Chubu cache $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]"
+          git push
