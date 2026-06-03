@@ -40,6 +40,12 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 try:
+    from curl_cffi import requests as cffi_requests
+    _CURL_CFFI_AVAILABLE = True
+except ImportError:
+    _CURL_CFFI_AVAILABLE = False
+
+try:
     from .data_generator import PREFECTURES, CAUSE_CATEGORY
 except ImportError:
     from data_generator import PREFECTURES, CAUSE_CATEGORY
@@ -464,7 +470,11 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
         result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
         ts = ""
 
-        session = requests.Session()
+        # curl_cffi が使えればChromeのTLSフィンガープリントで接続（クラウドIPのWAFブロック回避）
+        if _CURL_CFFI_AVAILABLE:
+            session = cffi_requests.Session(impersonate="chrome120")
+        else:
+            session = requests.Session()
 
         # Step 1: トップページ訪問でセッション・Cookie確立
         try:
