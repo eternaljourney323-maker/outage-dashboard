@@ -463,6 +463,8 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
     for k in ("Upgrade-Insecure-Requests", "sec-fetch-user"):
         _xhr_hdrs.pop(k, None)
 
+    logger.info("中部電力PG: curl_cffi=%s", _CURL_CFFI_AVAILABLE)
+
     for attempt in range(2):
         ts_ms     = int(time.time() * 1000)
         index_url = f"{_CHUBU_BASE_URL}/resource/disclose/xml/index.xml?{ts_ms}"
@@ -472,15 +474,16 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
 
         # curl_cffi が使えればChromeのTLSフィンガープリントで接続（クラウドIPのWAFブロック回避）
         if _CURL_CFFI_AVAILABLE:
-            session = cffi_requests.Session(impersonate="chrome120")
+            session = cffi_requests.Session(impersonate="chrome124")
         else:
             session = requests.Session()
 
         # Step 1: トップページ訪問でセッション・Cookie確立
         try:
-            session.get(top_url, headers=_nav_hdrs, timeout=15)
-        except Exception:
-            pass
+            top_r = session.get(top_url, headers=_nav_hdrs, timeout=15)
+            logger.info("中部電力PG top: status=%s ct=%s", top_r.status_code, top_r.headers.get("Content-Type", ""))
+        except Exception as exc:
+            logger.warning("中部電力PG top取得失敗: %s", exc)
 
         # Step 2: タイムスタンプ取得
         try:
@@ -498,6 +501,7 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
             pass
 
         # Step 3: 停電件数 XML 取得（値は「約1340戸」形式なので正規表現で数字を抽出）
+        idx_r = None
         try:
             idx_r = session.get(index_url, headers=_xhr_hdrs, timeout=20)
             idx_r.raise_for_status()
@@ -505,11 +509,11 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
             # WAFがHTMLエラーページを返した場合は XML として認識できない
             content_type = idx_r.headers.get("Content-Type", "")
             if "html" in content_type and "xml" not in content_type:
-                raise ValueError(f"WAFブロック疑い: Content-Type={content_type}")
+                raise ValueError(f"WAFブロック疑い: Content-Type={content_type}, body={idx_r.text[:200]!r}")
             idx_soup = BeautifulSoup(idx_r.text, "xml")
             areas = idx_soup.find_all("area")
             if not areas:
-                raise ValueError("XMLにareaタグなし（WAFブロックまたは形式変更の可能性）")
+                raise ValueError(f"XMLにareaタグなし body={idx_r.text[:200]!r}")
             for area in areas:
                 addr_node = area.find("address")
                 kosu_node = area.find("genzai_teiden_kosu")
@@ -524,7 +528,9 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
                                 pass
             return result, ts
         except Exception as exc:
-            logger.warning("中部電力PG取得失敗 (attempt %d/2): %s: %s", attempt + 1, type(exc).__name__, exc)
+            status = idx_r.status_code if idx_r is not None else "N/A"
+            logger.warning("中部電力PG取得失敗 (attempt %d/2) status=%s: %s: %s",
+                           attempt + 1, status, type(exc).__name__, exc)
             if attempt == 0:
                 time.sleep(3)
 
