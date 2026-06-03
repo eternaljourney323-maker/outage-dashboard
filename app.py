@@ -553,7 +553,7 @@ def load_history_data(_ver: str = _CACHE_VERSION):
     return fetch_all_history_with_causes()
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def load_realtime_data():
     return fetch_all_realtime()
 
@@ -1150,9 +1150,9 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    auto_refresh = st.toggle("60秒ごとに自動更新", value=False)
+    auto_refresh = st.toggle("30秒ごとに自動更新", value=False)
     if auto_refresh:
-        st.markdown('<meta http-equiv="refresh" content="60">', unsafe_allow_html=True)
+        st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 
     st.markdown("---")
 

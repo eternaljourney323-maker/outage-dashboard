@@ -31,6 +31,7 @@
 import re
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -512,9 +513,49 @@ def fetch_rikuden() -> tuple[dict[str, int], str]:
         if "停電は発生しておりません" in text:
             return result, ts
 
-        # 停電発生中の場合: メインページから件数を推測する
-        # （件数の記載なしのためすべて None 扱い）
-        return {p: None for p in _RIKUDEN_PREFS}, ts
+        # 停電発生中: テーブルから都道府県別停電軒数を抽出
+        for tbl in soup.find_all("table"):
+            for row in tbl.find_all("tr"):
+                cells = [td.get_text(separator=" ", strip=True) for td in row.find_all(["td", "th"])]
+                if len(cells) < 2:
+                    continue
+                for pref in _RIKUDEN_PREFS:
+                    short = pref.rstrip("県")
+                    if any(short in c for c in cells):
+                        for cell in cells:
+                            nums = re.findall(r"[\d,]+", cell)
+                            for n in nums:
+                                try:
+                                    count = int(n.replace(",", ""))
+                                    if count > 0 and result[pref] == 0:
+                                        result[pref] = count
+                                        break
+                                except ValueError:
+                                    pass
+
+        # テーブルから取れなかった場合: テキスト全体から軒数を検索
+        if all(v == 0 for v in result.values()):
+            for pref in _RIKUDEN_PREFS:
+                short = pref.rstrip("県")
+                m2 = re.search(rf"{short}[県]?[^\d]{{0,20}}([\d,]+)\s*軒", text)
+                if m2:
+                    try:
+                        result[pref] = int(m2.group(1).replace(",", ""))
+                    except ValueError:
+                        pass
+
+        # それでも 0 なら合計軒数を最初の県に仮割り当て（停電中であることは示す）
+        if all(v == 0 for v in result.values()):
+            total_m = re.search(r"([\d,]+)\s*軒", text)
+            if total_m:
+                try:
+                    total = int(total_m.group(1).replace(",", ""))
+                    if total > 0:
+                        result[_RIKUDEN_PREFS[0]] = total
+                except ValueError:
+                    pass
+
+        return result, ts
     except Exception as exc:
         logger.warning("北陸電力NW取得失敗: %s", exc)
         return {p: None for p in _RIKUDEN_PREFS}, ""
@@ -914,8 +955,9 @@ def fetch_kansai() -> tuple[dict[str, int], str]:
                     _traverse(item["children"])
 
         _traverse(data.get("children", []))
-        if not result:
-            result = {p: 0 for p in _KANSAI_PREFS.values()}
+        # API が返さない府県（停電なし＝エントリなし）を 0 で補完
+        for pref in _KANSAI_PREFS.values():
+            result.setdefault(pref, 0)
         ts = data.get("datetime", "")
         return result, ts
     except Exception as exc:
@@ -1250,18 +1292,27 @@ def fetch_tohoku_detail_df() -> pd.DataFrame:
 
 
 def fetch_all_history_with_causes() -> pd.DataFrame:
-    """全電力会社の実停電履歴（起因付き）を統一 DataFrame で返す"""
-    raw: list[dict] = (
-        fetch_hokkaido_history()
-        + fetch_tohoku_history()
-        + fetch_tepco_history()
-        + fetch_kansai_history()
-        + fetch_shikoku_history()
-        + fetch_okinawa_history()
-        + fetch_rikuden_history()
-        + fetch_chugoku_history()
-        + fetch_kyushu_history()
-    )
+    """全電力会社の実停電履歴（起因付き）を統一 DataFrame で返す（並列実行）"""
+    _hist_fns = [
+        fetch_hokkaido_history,
+        fetch_tohoku_history,
+        fetch_tepco_history,
+        fetch_kansai_history,
+        fetch_shikoku_history,
+        fetch_okinawa_history,
+        fetch_rikuden_history,
+        fetch_chugoku_history,
+        fetch_kyushu_history,
+    ]
+    raw: list[dict] = []
+    with ThreadPoolExecutor(max_workers=len(_hist_fns)) as pool:
+        futs = {pool.submit(fn): fn.__name__ for fn in _hist_fns}
+        for fut in as_completed(futs):
+            fn_name = futs[fut]
+            try:
+                raw.extend(fut.result())
+            except Exception as exc:
+                logger.warning("並列履歴取得失敗 %s: %s", fn_name, exc)
     rows: list[dict] = []
     for r in raw:
         pref_name = r["pref_name"]
@@ -1320,38 +1371,45 @@ def fetch_all_history_with_causes() -> pd.DataFrame:
 
 # ── 全社まとめ取得 ─────────────────────────────────────────────
 
+_REALTIME_JOBS: list[tuple] = [
+    (fetch_hokkaido, "北海道電力ネットワーク", "https://teiden-info.hepco.co.jp/"),
+    (fetch_tohoku,   "東北電力ネットワーク",   "https://nw.tohoku-epco.co.jp/teideninfo/"),
+    (fetch_rikuden,  "北陸電力送配電",          "https://www.rikuden.co.jp/nw/teiden/otj010.html"),
+    (fetch_chubu,    "中部電力パワーグリッド",   "https://teiden.powergrid.chuden.co.jp/p/index.html"),
+    (fetch_tepco,    "東京電力パワーグリッド",   "https://teideninfo.tepco.co.jp/"),
+    (fetch_kansai,   "関西電力送配電",           "https://www.kansai-td.co.jp/teiden-info/index.php"),
+    (fetch_shikoku,  "四国電力送配電",           "https://www.yonden.co.jp/nw/teiden-info/index.html"),
+    (fetch_chugoku,  "中国電力ネットワーク",     "https://www.teideninfo.energia.co.jp/"),
+    (fetch_kyushu,   "九州電力送配電",           "https://www.kyuden.co.jp/td_teiden/kyushu.html"),
+    (fetch_okinawa,  "沖縄電力",                "https://www.okidenmail.jp/bosai/info/index.html"),
+]
+
+
 def fetch_all_realtime() -> pd.DataFrame:
-    """アクセス可能な全電力会社から停電情報を取得し、47都道府県分の DataFrame を返す"""
+    """アクセス可能な全電力会社から停電情報を取得し、47都道府県分の DataFrame を返す（並列実行）"""
     fetched: dict[str, dict] = {}
     fetch_time = datetime.now().strftime("%Y年%m月%d日 %H:%M")
-    for fetch_fn, source_name, source_url in [
-        (fetch_hokkaido, "北海道電力ネットワーク",
-         "https://teiden-info.hepco.co.jp/"),
-        (fetch_tohoku,   "東北電力ネットワーク",
-         "https://nw.tohoku-epco.co.jp/teideninfo/"),
-        (fetch_rikuden,  "北陸電力送配電",
-         "https://www.rikuden.co.jp/nw/teiden/otj010.html"),
-        (fetch_chubu,    "中部電力パワーグリッド",
-         "https://teiden.powergrid.chuden.co.jp/p/index.html"),
-        (fetch_tepco,    "東京電力パワーグリッド",
-         "https://teideninfo.tepco.co.jp/"),
-        (fetch_kansai,   "関西電力送配電",
-         "https://www.kansai-td.co.jp/teiden-info/index.php"),
-        (fetch_shikoku,  "四国電力送配電",
-         "https://www.yonden.co.jp/nw/teiden-info/index.html"),
-        (fetch_chugoku,  "中国電力ネットワーク",
-         "https://www.teideninfo.energia.co.jp/"),
-        (fetch_kyushu,   "九州電力送配電",
-         "https://www.kyuden.co.jp/td_teiden/kyushu.html"),
-        (fetch_okinawa,  "沖縄電力",
-         "https://www.okidenmail.jp/bosai/info/index.html"),
-    ]:
+
+    def _run(fetch_fn, source_name, source_url):
         pref_counts, ts = fetch_fn()
-        for pref_name, count in pref_counts.items():
-            fetched[pref_name] = {
-                "count": count, "source": source_name,
-                "source_url": source_url, "ts": ts or fetch_time,
-            }
+        return source_name, source_url, pref_counts, ts or fetch_time
+
+    with ThreadPoolExecutor(max_workers=len(_REALTIME_JOBS)) as pool:
+        futs = {
+            pool.submit(_run, fn, name, url): (name, url)
+            for fn, name, url in _REALTIME_JOBS
+        }
+        for fut in as_completed(futs):
+            try:
+                source_name, source_url, pref_counts, ts = fut.result()
+                for pref_name, count in pref_counts.items():
+                    fetched[pref_name] = {
+                        "count": count, "source": source_name,
+                        "source_url": source_url, "ts": ts,
+                    }
+            except Exception as exc:
+                source_name, _ = futs[fut]
+                logger.warning("並列リアルタイム取得失敗 %s: %s", source_name, exc)
     rows = []
     for pref in PREFECTURES:
         name = pref["name"]
