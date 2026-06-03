@@ -429,15 +429,50 @@ def fetch_tepco_history(max_days: int = 31) -> list[dict]:
 def fetch_chubu() -> tuple[dict[str, int], str]:
     """中部電力パワーグリッドのリアルタイム停電情報を取得（愛知/三重/岐阜/静岡/長野）"""
     ts_ms     = int(time.time() * 1000)
+    top_url   = f"{_CHUBU_BASE_URL}/index.html"
     index_url = f"{_CHUBU_BASE_URL}/resource/disclose/xml/index.xml?{ts_ms}"
     area_url  = f"{_CHUBU_BASE_URL}/resource/xml/teiden_area.xml?{ts_ms}"
-    hdrs      = {**_HEADERS, "Referer": f"{_CHUBU_BASE_URL}/index.html"}
     result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
     ts = ""
 
-    # タイムスタンプ取得
+    # WAF回避: ブラウザの完全なセッションを模倣（sec-fetch-* ヘッダー付き）
+    _nav_hdrs = {
+        **_HEADERS,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+    }
+    _xhr_hdrs = {
+        **_nav_hdrs,
+        "Accept": "application/xml, text/xml, */*; q=0.01",
+        "Referer": top_url,
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    for k in ("Upgrade-Insecure-Requests", "sec-fetch-user"):
+        _xhr_hdrs.pop(k, None)
+
+    session = requests.Session()
+
+    # Step 1: トップページ訪問でセッション・Cookie確立
     try:
-        area_r = requests.get(area_url, headers=hdrs, timeout=20)
+        session.get(top_url, headers=_nav_hdrs, timeout=15)
+    except Exception:
+        pass
+
+    # Step 2: タイムスタンプ取得
+    try:
+        area_r = session.get(area_url, headers=_xhr_hdrs, timeout=20)
         area_r.encoding = "utf-8"
         area_soup = BeautifulSoup(area_r.text, "xml")
         dt_node = area_soup.find("data_make_d")
@@ -450,9 +485,9 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
     except Exception:
         pass
 
-    # 停電件数 XML 取得（値は「約1340戸」形式なので正規表現で数字を抽出）
+    # Step 3: 停電件数 XML 取得（値は「約1340戸」形式なので正規表現で数字を抽出）
     try:
-        idx_r = requests.get(index_url, headers=hdrs, timeout=20)
+        idx_r = session.get(index_url, headers=_xhr_hdrs, timeout=20)
         idx_r.raise_for_status()
         idx_r.encoding = "utf-8"
         idx_soup = BeautifulSoup(idx_r.text, "xml")
