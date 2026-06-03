@@ -555,6 +555,14 @@ def load_history_data(_ver: str = _CACHE_VERSION):
 
 @st.cache_data(ttl=30, show_spinner=False)
 def load_realtime_data():
+    from modules.scraper import fetch_chubu as _fetch_chubu
+    import logging as _logging
+    _log = _logging.getLogger("chubu_debug")
+    try:
+        _r, _t = _fetch_chubu()
+        _log.warning("CHUBU_DEBUG result=%s ts=%s", _r, _t)
+    except Exception as _e:
+        _log.warning("CHUBU_DEBUG exception=%s: %s", type(_e).__name__, _e)
     return fetch_all_realtime()
 
 
