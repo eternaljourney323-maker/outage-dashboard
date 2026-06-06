@@ -472,11 +472,13 @@ def _rank_group_toggle_html(rank_group: str) -> str:
     rank_group = "company" if rank_group == "company" else "pref"
     pref_cls = " active" if rank_group == "pref" else ""
     comp_cls = " active" if rank_group == "company" else ""
+    pref_url = _dashboard_query(rank_group="pref")
+    comp_url = _dashboard_query(rank_group="company")
     return (
-        f'<a class="sub-toggle{pref_cls}" '
-        f'href="{_dashboard_query(rank_group="pref")}" target="_self">都道府県別</a>'
-        f'<a class="sub-toggle{comp_cls}" '
-        f'href="{_dashboard_query(rank_group="company")}" target="_self">電力会社別</a>'
+        f'<span class="sub-toggle{pref_cls}" '
+        f'onclick="window.location.href=\'{pref_url}\'">都道府県別</span>'
+        f'<span class="sub-toggle{comp_cls}" '
+        f'onclick="window.location.href=\'{comp_url}\'">電力会社別</span>'
     )
 
 
@@ -575,11 +577,8 @@ def build_prefecture_rank_panel_html(
         '<div class="analytics-card">'
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
-        '<div class="panel-title">都道府県別 停電戸数（推定）</div>'
-        f'{_card_filter_row_html(rank_group, area_options, selected_area)}'
+        f'<div class="panel-title">{"電力会社別" if rank_group == "company" else "都道府県別"} 停電戸数（推定）</div>'
         '</div>'
-        f'<div class="analytics-head-right"><a class="select-chip{" active" if rank_limit == 10 else ""}" href="{_dashboard_query(rank_limit="10")}" target="_self">上位10件</a>'
-        f'<a class="select-chip{" active" if rank_limit == 20 else ""}" href="{_dashboard_query(rank_limit="20")}" target="_self" style="margin-left:4px;">上位20件</a></div>'
         '</div>'
         f'<div class="rank-chart">{rows}</div>'
         '</div>'
@@ -657,10 +656,7 @@ def build_cause_donut_panel_html(
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
         '<div class="panel-title">停電原因（件数ベース）</div>'
-        f'{_card_filter_row_html(rank_group, area_options, selected_area)}'
         '</div>'
-        f'<div class="analytics-head-right"><a class="select-chip{" active" if not is_recent else ""}" href="{_dashboard_query(cause_period="all")}" target="_self">全期間</a>'
-        f'<a class="select-chip{" active" if is_recent else ""}" href="{_dashboard_query(cause_period="recent")}" target="_self" style="margin-left:4px;">直近7日</a></div>'
         '</div>'
         '<div class="donut-layout">'
         '<div class="donut-wrap">'
@@ -751,10 +747,7 @@ def build_cause_trend_panel_html(
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
         '<div class="panel-title">原因別 発生件数の推移</div>'
-        f'{_card_filter_row_html(rank_group, area_options, selected_area)}'
         '</div>'
-        f'<div class="analytics-head-right"><a class="tab-chip{daily_class}" href="{_dashboard_query(trend_mode="daily")}" target="_self">日次</a>'
-        f'<a class="tab-chip{weekly_class}" href="{_dashboard_query(trend_mode="weekly")}" target="_self">週次</a></div>'
         '</div>'
         f'<div class="trend-legend">{legend}</div>'
         '<svg class="trend-svg" viewBox="0 0 500 220" preserveAspectRatio="none">'
@@ -1718,19 +1711,42 @@ if section == "realtime":
     with alert_col:
         st.markdown(build_emergency_table_html(df_rt), unsafe_allow_html=True)
 
-    rank_limit_raw = st.query_params.get("rank_limit", "20")
-    rank_limit = 10 if rank_limit_raw == "10" else 20
-    rank_group = st.query_params.get("rank_group", "pref")
-    rank_group = rank_group if rank_group in {"pref", "company"} else "pref"
-    cause_period = st.query_params.get("cause_period", "all")
-    cause_period = cause_period if cause_period in {"all", "recent"} else "all"
+    # ── ボトムパネル コントロール ──────────────────────────────
+    _bc1, _bc2, _bc3, _bc4, _bc5 = st.columns([1, 1.4, 0.9, 0.9, 0.9])
+    with _bc1:
+        rg_label = st.radio(
+            "表示単位", ["都道府県別", "電力会社別"],
+            horizontal=True, key="rg_ctrl",
+        )
+        rank_group = "company" if rg_label == "電力会社別" else "pref"
     if rank_group == "company":
         area_options = ["all"] + sorted(df_rt["data_source"].dropna().unique().tolist())
+        area_display = ["全体"] + [_short_company_name(a) for a in area_options[1:]]
     else:
         area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
-    selected_area = st.query_params.get("area", "all")
-    if selected_area not in area_options:
-        selected_area = "all"
+        area_display = ["全体"] + area_options[1:]
+    with _bc2:
+        area_sel = st.selectbox("エリア絞り込み", area_display, key=f"area_ctrl_{rank_group}")
+        selected_area = area_options[area_display.index(area_sel)]
+    with _bc3:
+        rl_label = st.radio(
+            "件数", ["上位20件", "上位10件"],
+            horizontal=True, key="rl_ctrl",
+        )
+        rank_limit = 10 if rl_label == "上位10件" else 20
+    with _bc4:
+        cp_label = st.radio(
+            "期間", ["全期間", "直近7日"],
+            horizontal=True, key="cp_ctrl",
+        )
+        cause_period = "recent" if cp_label == "直近7日" else "all"
+    with _bc5:
+        tm_label = st.radio(
+            "トレンド", ["日次", "週次"],
+            horizontal=True, key="tm_ctrl",
+        )
+        trend_mode = "weekly" if tm_label == "週次" else "daily"
+
     bottom1, bottom2, bottom3 = st.columns([1.2, 1, 1], gap="medium")
     with bottom1:
         st.markdown(
@@ -1747,8 +1763,6 @@ if section == "realtime":
             unsafe_allow_html=True,
         )
     with bottom3:
-        trend_mode = st.query_params.get("trend_mode", "daily")
-        trend_mode = trend_mode if trend_mode in {"daily", "weekly"} else "daily"
         st.markdown(
             build_cause_trend_panel_html(
                 trend_mode, rank_group, selected_area, area_options,
