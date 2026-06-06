@@ -371,8 +371,16 @@ section[data-testid="stSidebar"] .stButton > button:active {
 }
 
 .analytics-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; margin-bottom: 16px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px;
+}
+
+.analytics-head-left {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+}
+
+.analytics-head-right {
+  display: flex; align-items: center; flex-shrink: 0;
 }
 
 /* ── チップ・タブ ───────────────────────────────────────────── */
@@ -397,7 +405,7 @@ a.tab-chip { text-decoration: none; cursor: pointer; }
 a.tab-chip:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
 
 /* ── サブトグル ─────────────────────────────────────────────── */
-.sub-toggle-row { display: flex; gap: 6px; margin: -8px 0 14px; }
+.sub-toggle-row { display: flex; gap: 6px; }
 .sub-toggle {
   display: inline-flex; align-items: center; justify-content: center;
   height: 26px; padding: 0 10px; border-radius: 999px;

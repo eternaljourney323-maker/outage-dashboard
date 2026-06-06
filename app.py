@@ -474,13 +474,13 @@ def _adjust_trend_path_for_area(path: str, seed: int, series_index: int) -> str:
 
 def _rank_group_toggle_html(rank_group: str) -> str:
     rank_group = "company" if rank_group == "company" else "pref"
+    pref_cls = " active" if rank_group == "pref" else ""
+    comp_cls = " active" if rank_group == "company" else ""
     return (
-        '<div class="sub-toggle-row">'
-        f'<a class="sub-toggle{" active" if rank_group == "pref" else ""}" '
+        f'<a class="sub-toggle{pref_cls}" '
         f'href="{_dashboard_query(rank_group="pref")}" target="_self">都道府県別</a>'
-        f'<a class="sub-toggle{" active" if rank_group == "company" else ""}" '
+        f'<a class="sub-toggle{comp_cls}" '
         f'href="{_dashboard_query(rank_group="company")}" target="_self">電力会社別</a>'
-        '</div>'
     )
 
 
@@ -493,7 +493,6 @@ def build_prefecture_rank_panel_html(
     rank_limit = 10 if rank_limit == 10 else 20
     rank_group = "company" if rank_group == "company" else "pref"
     if rank_group == "company":
-        title = "電力会社別 合計停電戸数（推定）"
         name_col = "data_source"
         top = (
             df.assign(_count=df["affected_customers"].fillna(0).astype(int))
@@ -502,7 +501,6 @@ def build_prefecture_rank_panel_html(
             .head(rank_limit)
         )
     else:
-        title = "都道府県別 停電戸数（推定）"
         name_col = "prefecture"
         top = (
             df.assign(_count=df["affected_customers"].fillna(0).astype(int))
@@ -533,10 +531,14 @@ def build_prefecture_rank_panel_html(
         )
     return (
         '<div class="analytics-card">'
-        f'<div class="analytics-head"><div class="panel-title">{title}</div>'
-        f'<div><a class="select-chip{" active" if rank_limit == 10 else ""}" href="{_dashboard_query(rank_limit="10")}" target="_self">上位10件</a>'
-        f'<a class="select-chip{" active" if rank_limit == 20 else ""}" href="{_dashboard_query(rank_limit="20")}" target="_self" style="margin-left:4px;">上位20件</a></div></div>'
-        f'{_rank_group_toggle_html(rank_group)}'
+        '<div class="analytics-head">'
+        '<div class="analytics-head-left">'
+        '<div class="panel-title">都道府県別 停電戸数（推定）</div>'
+        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        '</div>'
+        f'<div class="analytics-head-right"><a class="select-chip{" active" if rank_limit == 10 else ""}" href="{_dashboard_query(rank_limit="10")}" target="_self">上位10件</a>'
+        f'<a class="select-chip{" active" if rank_limit == 20 else ""}" href="{_dashboard_query(rank_limit="20")}" target="_self" style="margin-left:4px;">上位20件</a></div>'
+        '</div>'
         f'<div class="rank-chart">{rows}</div>'
         '</div>'
     )
@@ -608,11 +610,14 @@ def build_cause_donut_panel_html(
     )
     return (
         '<div class="analytics-card">'
-        f'<div class="analytics-head"><div><div class="panel-title">停電原因（件数ベース）</div>'
-        f'<div style="font-size:.72rem; color:#64748b; font-weight:700; margin-top:4px;">対象: {_html.escape(_area_label(selected_area, rank_group))}</div></div>'
-        f'<div><a class="select-chip{" active" if not is_recent else ""}" href="{_dashboard_query(cause_period="all")}" target="_self">全期間</a>'
-        f'<a class="select-chip{" active" if is_recent else ""}" href="{_dashboard_query(cause_period="recent")}" target="_self" style="margin-left:4px;">直近7日</a></div></div>'
-        f'{_rank_group_toggle_html(rank_group)}'
+        '<div class="analytics-head">'
+        '<div class="analytics-head-left">'
+        '<div class="panel-title">停電原因（件数ベース）</div>'
+        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        '</div>'
+        f'<div class="analytics-head-right"><a class="select-chip{" active" if not is_recent else ""}" href="{_dashboard_query(cause_period="all")}" target="_self">全期間</a>'
+        f'<a class="select-chip{" active" if is_recent else ""}" href="{_dashboard_query(cause_period="recent")}" target="_self" style="margin-left:4px;">直近7日</a></div>'
+        '</div>'
         '<div class="donut-layout">'
         '<div class="donut-wrap">'
         '<svg viewBox="0 0 42 42" class="donut-svg" aria-label="停電原因">'
@@ -697,11 +702,14 @@ def build_cause_trend_panel_html(
     )
     return (
         '<div class="analytics-card">'
-        f'<div class="analytics-head"><div><div class="panel-title">原因別 発生件数の推移</div>'
-        f'<div style="font-size:.72rem; color:#64748b; font-weight:700; margin-top:4px;">対象: {_html.escape(_area_label(selected_area, rank_group))}</div></div>'
-        f'<div><a class="tab-chip{daily_class}" href="{_dashboard_query(trend_mode="daily")}" target="_self">日次</a>'
-        f'<a class="tab-chip{weekly_class}" href="{_dashboard_query(trend_mode="weekly")}" target="_self">週次</a></div></div>'
-        f'{_rank_group_toggle_html(rank_group)}'
+        '<div class="analytics-head">'
+        '<div class="analytics-head-left">'
+        '<div class="panel-title">原因別 発生件数の推移</div>'
+        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        '</div>'
+        f'<div class="analytics-head-right"><a class="tab-chip{daily_class}" href="{_dashboard_query(trend_mode="daily")}" target="_self">日次</a>'
+        f'<a class="tab-chip{weekly_class}" href="{_dashboard_query(trend_mode="weekly")}" target="_self">週次</a></div>'
+        '</div>'
         f'<div class="trend-legend">{legend}</div>'
         '<svg class="trend-svg" viewBox="0 0 500 220" preserveAspectRatio="none">'
         '<g stroke="#e5e7eb" stroke-width="1">'
@@ -1698,23 +1706,18 @@ if section == "realtime":
     rank_group = rank_group if rank_group in {"pref", "company"} else "pref"
     cause_period = st.query_params.get("cause_period", "all")
     cause_period = cause_period if cause_period in {"all", "recent"} else "all"
-    if rank_group == "company":
-        area_options = ["all"] + sorted(df_rt["data_source"].dropna().unique().tolist())
-        area_label = "電力会社名"
-    else:
-        area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
-        area_label = "都道府県名"
+    area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
     selected_area_param = st.query_params.get("area", "all")
     if selected_area_param not in area_options:
         selected_area_param = "all"
     filter_left, _filter_right = st.columns([1, 2], gap="medium")
     with filter_left:
         selected_area = st.selectbox(
-            f"{area_label}を選択",
+            "都道府県名を選択",
             area_options,
             index=area_options.index(selected_area_param),
-            format_func=lambda value: "全体" if value == "all" else _area_label(value, rank_group),
-            key=f"area_selector_{rank_group}",
+            format_func=lambda value: "全体" if value == "all" else value,
+            key="area_selector_pref",
         )
     if selected_area != selected_area_param:
         st.query_params["area"] = selected_area
