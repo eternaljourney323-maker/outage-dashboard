@@ -1,6 +1,7 @@
 import html as _html
 import xml.etree.ElementTree as ET
 import datetime as _dt
+from typing import Optional, List
 import streamlit as st
 import streamlit.components.v1 as _components
 import plotly.express as px
@@ -306,9 +307,7 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
     for company in _MAP_COMPANY_ORDER:
         _, _, color, short = _MAP_COMPANY_STYLES[company]
         company_rows += (
-            f'<div style="height:27px; display:flex; align-items:center;'
-            f' border-bottom:1px solid #edf2f7; font-size:0.72rem;'
-            f' color:{color}; font-weight:700; padding:0 8px;">{short}</div>'
+            f'<div class="map-company-row" style="color:{color};">{short}</div>'
         )
 
     tiles = ""
@@ -337,12 +336,10 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
         )
         pref_label = pref[:-1] if pref.endswith(("県", "府", "都")) else pref
         tiles += (
-            f'<div title="{pref} {count:,}軒" style="grid-column:{col} / span {span_c}; grid-row:{row} / span {span_r};'
-            f' background:{bg}; color:{txt}; border:2px solid {border};'
-            f' border-radius:5px; min-width:0; min-height:42px; display:flex;'
-            f' align-items:center; justify-content:center; flex-direction:column;'
-            f' font-size:0.8rem; font-weight:700; box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);">'
-            f'<span style="color:{txt}; line-height:1;">{pref_label}</span>'
+            f'<div class="map-tile" title="{pref} {count:,}軒"'
+            f' style="grid-column:{col} / span {span_c}; grid-row:{row} / span {span_r};'
+            f' background:{bg}; color:{txt}; border-color:{border};">'
+            f'<span class="map-tile-label" style="color:{txt};">{pref_label}</span>'
             f'{count_label}'
             f'</div>'
         )
@@ -359,13 +356,12 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
         '<span><i style="background:#dc2626"></i>100,001戸〜</span>'
         '<span><i style="background:#94a3b8"></i>データなし</span>'
         '</div></div>'
-        '<div style="display:grid; grid-template-columns:170px 1fr; gap:18px; align-items:center;">'
-        f'<div style="border:1px solid #e5e7eb; border-radius:4px; overflow:hidden;">{company_rows}</div>'
-        '<div style="min-height:410px; display:flex; align-items:center; justify-content:center; overflow:visible;">'
-        '<div style="display:grid; grid-template-columns:repeat(11,46px); grid-template-rows:repeat(13,37px);'
-        ' gap:3px; align-items:stretch; justify-content:center;">'
-        f'{tiles}</div></div></div>'
-        '<div style="text-align:right; color:#64748b; font-size:0.72rem;">※地図は電力会社エリアに基づく簡易表示です</div>'
+        '<div class="map-panel-body">'
+        f'<div class="map-company-list">{company_rows}</div>'
+        '<div class="map-tile-viewport">'
+        f'<div class="map-tile-grid">{tiles}</div>'
+        '</div></div>'
+        '<div class="map-footnote">※地図は電力会社エリアに基づく簡易表示です</div>'
         '</div>'
     )
 
@@ -484,18 +480,64 @@ def _rank_group_toggle_html(rank_group: str) -> str:
     )
 
 
+def _area_select_html(
+    area_options: list[str],
+    selected_area: str,
+    rank_group: str,
+) -> str:
+    rank_group = "company" if rank_group == "company" else "pref"
+    label = "電力会社名" if rank_group == "company" else "都道府県名"
+    options = ""
+    for opt in area_options:
+        display = "全体" if opt == "all" else (
+            _short_company_name(opt) if rank_group == "company" else opt
+        )
+        selected = " selected" if opt == selected_area else ""
+        href = _html.escape(_dashboard_query(area=opt), quote=True)
+        options += (
+            f'<option value="{href}"{selected}>{_html.escape(display)}</option>'
+        )
+    return (
+        f'<label class="area-select-wrap">'
+        f'<span class="area-select-label">{label}</span>'
+        f'<select class="area-select" aria-label="{label}を選択" '
+        f'onchange="if(this.value)window.location.href=this.value">'
+        f'{options}</select></label>'
+    )
+
+
+def _card_filter_row_html(
+    rank_group: str,
+    area_options: list[str],
+    selected_area: str,
+) -> str:
+    return (
+        '<div class="card-filter-row">'
+        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        f'{_area_select_html(area_options, selected_area, rank_group)}'
+        '</div>'
+    )
+
+
 def build_prefecture_rank_panel_html(
     df: pd.DataFrame,
     rank_limit: int = 20,
     rank_group: str = "pref",
+    area_options: Optional[List[str]] = None,
+    selected_area: str = "all",
 ) -> str:
     """下部カード: 都道府県/電力会社別 停電戸数ランキング"""
     rank_limit = 10 if rank_limit == 10 else 20
     rank_group = "company" if rank_group == "company" else "pref"
+    area_options = area_options or ["all"]
+    work_df = df
+    if selected_area != "all":
+        col = "data_source" if rank_group == "company" else "prefecture"
+        work_df = df[df[col] == selected_area]
     if rank_group == "company":
         name_col = "data_source"
         top = (
-            df.assign(_count=df["affected_customers"].fillna(0).astype(int))
+            work_df.assign(_count=work_df["affected_customers"].fillna(0).astype(int))
             .groupby(name_col, as_index=False)["_count"].sum()
             .sort_values(["_count", name_col], ascending=[False, True])
             .head(rank_limit)
@@ -503,7 +545,7 @@ def build_prefecture_rank_panel_html(
     else:
         name_col = "prefecture"
         top = (
-            df.assign(_count=df["affected_customers"].fillna(0).astype(int))
+            work_df.assign(_count=work_df["affected_customers"].fillna(0).astype(int))
             .sort_values(["_count", name_col], ascending=[False, True])
             .head(rank_limit)
         )
@@ -534,7 +576,7 @@ def build_prefecture_rank_panel_html(
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
         '<div class="panel-title">都道府県別 停電戸数（推定）</div>'
-        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        f'{_card_filter_row_html(rank_group, area_options, selected_area)}'
         '</div>'
         f'<div class="analytics-head-right"><a class="select-chip{" active" if rank_limit == 10 else ""}" href="{_dashboard_query(rank_limit="10")}" target="_self">上位10件</a>'
         f'<a class="select-chip{" active" if rank_limit == 20 else ""}" href="{_dashboard_query(rank_limit="20")}" target="_self" style="margin-left:4px;">上位20件</a></div>'
@@ -548,8 +590,10 @@ def build_cause_donut_panel_html(
     period: str = "all",
     rank_group: str = "pref",
     selected_area: str = "all",
+    area_options: Optional[List[str]] = None,
 ) -> str:
     """下部カード: 停電原因ドーナツ。リアルタイム画面では見本分布として表示。"""
+    area_options = area_options or ["all"]
     is_recent = period == "recent"
     is_company = rank_group == "company"
     if is_recent:
@@ -613,7 +657,7 @@ def build_cause_donut_panel_html(
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
         '<div class="panel-title">停電原因（件数ベース）</div>'
-        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        f'{_card_filter_row_html(rank_group, area_options, selected_area)}'
         '</div>'
         f'<div class="analytics-head-right"><a class="select-chip{" active" if not is_recent else ""}" href="{_dashboard_query(cause_period="all")}" target="_self">全期間</a>'
         f'<a class="select-chip{" active" if is_recent else ""}" href="{_dashboard_query(cause_period="recent")}" target="_self" style="margin-left:4px;">直近7日</a></div>'
@@ -634,8 +678,10 @@ def build_cause_trend_panel_html(
     mode: str = "daily",
     rank_group: str = "pref",
     selected_area: str = "all",
+    area_options: Optional[List[str]] = None,
 ) -> str:
     """下部カード: 原因別 発生件数の推移"""
+    area_options = area_options or ["all"]
     is_weekly = mode == "weekly"
     is_company = rank_group == "company"
     is_specific = selected_area != "all"
@@ -705,7 +751,7 @@ def build_cause_trend_panel_html(
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
         '<div class="panel-title">原因別 発生件数の推移</div>'
-        f'<div class="sub-toggle-row">{_rank_group_toggle_html(rank_group)}</div>'
+        f'{_card_filter_row_html(rank_group, area_options, selected_area)}'
         '</div>'
         f'<div class="analytics-head-right"><a class="tab-chip{daily_class}" href="{_dashboard_query(trend_mode="daily")}" target="_self">日次</a>'
         f'<a class="tab-chip{weekly_class}" href="{_dashboard_query(trend_mode="weekly")}" target="_self">週次</a></div>'
@@ -1531,38 +1577,6 @@ with st.sidebar:
     )
 
     st.markdown(
-        '<div style="padding:10px 16px 6px;">'
-        '<label style="display:flex;align-items:center;gap:8px;'
-        'font-size:0.76rem;color:#64748b;cursor:pointer;">',
-        unsafe_allow_html=True,
-    )
-    auto_refresh = st.toggle("30秒ごとに自動更新", value=False)
-    if auto_refresh:
-        st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
-
-    st.markdown(
-        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
-        unsafe_allow_html=True,
-    )
-
-    # ── REALTIME ─────────────────────────────────────────
-    st.markdown(
-        '<div style="font-size:0.65rem;font-weight:700;color:#475569;'
-        'letter-spacing:0.08em;text-transform:uppercase;'
-        'padding:10px 16px 4px;">Realtime</div>',
-        unsafe_allow_html=True,
-    )
-    if st.button("📊　ダッシュボード",
-                 use_container_width=True, key="nav_rt"):
-        st.session_state["active_section"] = "realtime"
-    if st.button("🗾　全国マップ",
-                 use_container_width=True, key="nav_map_dummy"):
-        st.session_state["active_section"] = "realtime"
-    if st.button("📈　時系列推移",
-                 use_container_width=True, key="nav_trend_dummy"):
-        st.session_state["active_section"] = "realtime"
-
-    st.markdown(
         '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
         unsafe_allow_html=True,
     )
@@ -1710,38 +1724,35 @@ if section == "realtime":
     rank_group = rank_group if rank_group in {"pref", "company"} else "pref"
     cause_period = st.query_params.get("cause_period", "all")
     cause_period = cause_period if cause_period in {"all", "recent"} else "all"
-    area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
-    selected_area_param = st.query_params.get("area", "all")
-    if selected_area_param not in area_options:
-        selected_area_param = "all"
-    filter_left, _filter_right = st.columns([1, 2], gap="medium")
-    with filter_left:
-        selected_area = st.selectbox(
-            "都道府県名を選択",
-            area_options,
-            index=area_options.index(selected_area_param),
-            format_func=lambda value: "全体" if value == "all" else value,
-            key="area_selector_pref",
-        )
-    if selected_area != selected_area_param:
-        st.query_params["area"] = selected_area
-        st.rerun()
+    if rank_group == "company":
+        area_options = ["all"] + sorted(df_rt["data_source"].dropna().unique().tolist())
+    else:
+        area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
+    selected_area = st.query_params.get("area", "all")
+    if selected_area not in area_options:
+        selected_area = "all"
     bottom1, bottom2, bottom3 = st.columns([1.2, 1, 1], gap="medium")
     with bottom1:
         st.markdown(
-            build_prefecture_rank_panel_html(df_rt, rank_limit, rank_group),
+            build_prefecture_rank_panel_html(
+                df_rt, rank_limit, rank_group, area_options, selected_area,
+            ),
             unsafe_allow_html=True,
         )
     with bottom2:
         st.markdown(
-            build_cause_donut_panel_html(cause_period, rank_group, selected_area),
+            build_cause_donut_panel_html(
+                cause_period, rank_group, selected_area, area_options,
+            ),
             unsafe_allow_html=True,
         )
     with bottom3:
         trend_mode = st.query_params.get("trend_mode", "daily")
         trend_mode = trend_mode if trend_mode in {"daily", "weekly"} else "daily"
         st.markdown(
-            build_cause_trend_panel_html(trend_mode, rank_group, selected_area),
+            build_cause_trend_panel_html(
+                trend_mode, rank_group, selected_area, area_options,
+            ),
             unsafe_allow_html=True,
         )
 
