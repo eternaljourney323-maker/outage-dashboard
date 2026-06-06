@@ -88,6 +88,13 @@ section[data-testid="stSidebar"] {
   padding-top: 0;
 }
 
+/* フッターに隠れないよう下部に余白 */
+section[data-testid="stSidebar"] > div:first-child,
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
+section[data-testid="stSidebarContent"] {
+  padding-bottom: 64px !important;
+}
+
 /* サイドバー内テキスト全体をライト系に */
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] div,

@@ -1640,8 +1640,8 @@ with st.sidebar:
 
     # ── フッター ──────────────────────────────────────────
     st.markdown(
-        '<div style="position:absolute;bottom:0;left:0;right:0;'
-        'padding:10px 16px;border-top:1px solid #1e293b;'
+        '<div style="margin-top:16px;padding:10px 4px;'
+        'border-top:1px solid #1e293b;'
         'font-size:0.68rem;color:#334155;text-align:center;">'
         '各電力ネットワーク会社公式サイトのデータを使用</div>',
         unsafe_allow_html=True,
