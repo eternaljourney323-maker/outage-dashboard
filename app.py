@@ -1130,7 +1130,7 @@ if "active_section" not in st.session_state:
 
 
 # ─── ヘッダー ─────────────────────────────────────────────────
-now_str = datetime.now().strftime("%Y年%m月%d日 %H:%M")
+now_str = datetime.now(_dt.timezone(_dt.timedelta(hours=9))).strftime("%Y年%m月%d日 %H:%M")
 st.markdown(f"""
 <div class="main-header">
   <div>
