@@ -543,7 +543,9 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
 
     # 直接取得失敗 → GitHub Actionsキャッシュへフォールバック
     try:
-        cache_r = requests.get(_CHUBU_CACHE_URL, timeout=10)
+        # CDNキャッシュバイパスのためタイムスタンプパラメータを付与
+        bust = int(time.time())
+        cache_r = requests.get(f"{_CHUBU_CACHE_URL}?_={bust}", timeout=10)
         cache_r.raise_for_status()
         data = cache_r.json()
         result = {p: data["result"].get(p) for p in _CHUBU_PREFS}
