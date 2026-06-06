@@ -1,0 +1,616 @@
+/* ============================================================
+   全国停電情報ダッシュボード — Design System v2
+   Dark Sidebar + Light Content (Vercel/Linear style)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+
+/* ── デザイントークン ──────────────────────────────────────── */
+:root {
+  /* サーフェス */
+  --bg:            #f1f5f9;
+  --surface:       #ffffff;
+  --surface-muted: #f8fafc;
+  --border:        #e2e8f0;
+  --border-soft:   #f1f5f9;
+
+  /* サイドバー */
+  --sidebar-bg:          #0f172a;
+  --sidebar-text:        #94a3b8;
+  --sidebar-text-hover:  #cbd5e1;
+  --sidebar-active-text: #f8fafc;
+  --sidebar-active-bg:   #1e293b;
+  --sidebar-border:      #1e293b;
+  --sidebar-section:     #475569;
+  --sidebar-accent:      #3b82f6;
+
+  /* テキスト */
+  --text:          #0f172a;
+  --text-secondary:#475569;
+  --text-muted:    #94a3b8;
+
+  /* アクセント */
+  --accent:        #2563eb;
+  --accent-soft:   #dbeafe;
+  --success:       #16a34a;
+  --success-soft:  #dcfce7;
+  --warning:       #d97706;
+  --danger:        #dc2626;
+  --danger-soft:   #fee2e2;
+  --alert:         #ea580c;
+
+  /* タイポグラフィ */
+  --font:          'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size-xs:  0.7rem;
+  --font-size-sm:  0.78rem;
+  --font-size-md:  0.875rem;
+  --font-size-lg:  1rem;
+
+  /* シャドウ */
+  --shadow-xs: 0 1px 2px rgba(15,23,42,.04);
+  --shadow-sm: 0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.06);
+
+  /* アニメーション */
+  --ease:     cubic-bezier(.4,0,.2,1);
+  --duration: 150ms;
+}
+
+/* ── ベース ────────────────────────────────────────────────── */
+html, body, [class*="css"] {
+  font-family: var(--font);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.stApp { background: var(--bg); }
+
+.stApp p, .stApp span, .stApp div, .stApp label,
+.stApp li, .stApp h1, .stApp h2, .stApp h3,
+[data-testid="stMarkdownContainer"] { color: var(--text); }
+
+.block-container {
+  background: transparent;
+  padding-top: 5.6rem;
+  padding-bottom: 2rem;
+  max-width: 1560px;
+}
+
+header[data-testid="stHeader"],
+[data-testid="stToolbar"] { background: transparent; }
+
+/* ── サイドバー ─────────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid var(--sidebar-border);
+  top: 58px;
+  height: calc(100vh - 58px);
+  padding-top: 0;
+}
+
+/* サイドバー内テキスト全体をライト系に */
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] div,
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span {
+  color: var(--sidebar-text) !important;
+}
+
+section[data-testid="stSidebar"] hr {
+  border-color: var(--sidebar-border) !important;
+  margin: 6px 0;
+  opacity: 1;
+}
+
+/* トグル */
+section[data-testid="stSidebar"] [data-testid="stToggleLabel"] p {
+  color: var(--sidebar-text) !important;
+  font-size: var(--font-size-sm) !important;
+}
+
+/* Expander */
+section[data-testid="stSidebar"] .streamlit-expanderHeader,
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+  background: transparent !important;
+  color: var(--sidebar-section) !important;
+  font-size: 0.67rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 10px 16px 6px !important;
+  border: none !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stExpander"] {
+  border: none !important;
+  background: transparent !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stExpander"] > div {
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* ボタンラッパーの余白を詰める */
+section[data-testid="stSidebar"] [data-testid="stButton"] {
+  margin: 0 !important;
+}
+section[data-testid="stSidebar"] div.stButton {
+  margin-bottom: 0 !important;
+}
+
+/* ナビゲーションボタン */
+section[data-testid="stSidebar"] .stButton > button {
+  border-radius: 6px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--sidebar-text) !important;
+  font-family: var(--font) !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  min-height: 2.2rem !important;
+  box-shadow: none !important;
+  justify-content: flex-start !important;
+  padding: 6px 14px !important;
+  margin: 1px 6px !important;
+  width: calc(100% - 12px) !important;
+  transition: background var(--duration) var(--ease),
+              color var(--duration) var(--ease) !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button p {
+  color: var(--sidebar-text) !important;
+  line-height: 1.4 !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover {
+  background: rgba(255,255,255,.06) !important;
+  color: var(--sidebar-text-hover) !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover p {
+  color: var(--sidebar-text-hover) !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:focus {
+  box-shadow: 0 0 0 2px rgba(59,130,246,.4) !important;
+  outline: none !important;
+}
+
+/* アクティブボタン（フォーカス後クリック状態） */
+section[data-testid="stSidebar"] .stButton > button:active {
+  background: var(--sidebar-active-bg) !important;
+  color: var(--sidebar-active-text) !important;
+}
+
+/* ── ヘッダー ───────────────────────────────────────────────── */
+.main-header {
+  position: fixed;
+  top: 0; left: 0; right: 0; z-index: 10000;
+  background: var(--surface);
+  height: 58px; padding: 0 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 8px rgba(15,23,42,.06);
+  gap: 16px;
+}
+
+.header-brand {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+}
+
+.header-logo {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  color: white !important; font-size: 1.05rem; font-weight: 700;
+  box-shadow: 0 2px 8px rgba(37,99,235,.3);
+  flex-shrink: 0;
+}
+
+.main-header h1 {
+  font-size: 1.05rem; font-weight: 700; margin: 0;
+  white-space: nowrap; letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.main-header p { display: none; }
+
+.header-right {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 0.8rem; color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.header-status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); display: inline-block;
+  margin-right: 5px;
+  box-shadow: 0 0 0 2px rgba(22,163,74,.2);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(22,163,74,.2); }
+  50%       { box-shadow: 0 0 0 4px rgba(22,163,74,.1); }
+}
+
+.header-right b { color: var(--text); font-weight: 600; }
+
+.header-chip {
+  background: var(--success-soft); color: #166534 !important;
+  border-radius: 6px; padding: 3px 8px; font-weight: 700;
+  font-size: 0.76rem;
+}
+
+/* ── KPI カード ─────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.kpi-card {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  min-height: 120px;
+  animation: fadeIn 0.35s var(--ease);
+  transition: box-shadow var(--duration) var(--ease),
+              transform var(--duration) var(--ease);
+}
+
+.kpi-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.kpi-card.red   { border-top-color: var(--danger); }
+.kpi-card.orange{ border-top-color: var(--alert); }
+.kpi-card.green { border-top-color: var(--success); }
+.kpi-card.blue  { border-top-color: var(--accent); }
+
+.kpi-card.red    .kpi-value { color: var(--danger); }
+.kpi-card.orange .kpi-value { color: var(--alert); }
+.kpi-card.green  .kpi-value { color: var(--success); }
+.kpi-card.blue   .kpi-value { color: var(--text); }
+
+.kpi-head  { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.kpi-icon  { font-size: 1rem; line-height: 1; }
+.kpi-label { font-size: 0.76rem; color: var(--text-secondary); font-weight: 600;
+             letter-spacing: 0.01em; }
+.kpi-value { font-size: 2.1rem; font-weight: 700; color: var(--text);
+             line-height: 1.15; font-variant-numeric: tabular-nums; }
+.kpi-value .unit { font-size: 0.85rem; font-weight: 500; margin-left: 3px;
+                   color: inherit; opacity: .8; }
+.kpi-sub   { font-size: 0.72rem; color: var(--text-muted); margin-top: 10px;
+             font-weight: 500; }
+.trend-up  { color: #ef4444 !important; font-weight: 700; margin: 0 6px; }
+.trend-ok  { color: var(--success) !important; font-weight: 700; margin: 0 6px; }
+
+/* ── パネルカード（マップ・テーブル等）──────────────────────── */
+.panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px;
+  min-height: 420px;
+  animation: fadeIn 0.4s var(--ease);
+}
+
+.panel-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px;
+}
+
+.panel-title {
+  font-size: 0.9rem; font-weight: 700; color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.map-legend {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  color: var(--text-secondary); font-size: 0.68rem; font-weight: 600;
+}
+
+.map-legend span { display: inline-flex; align-items: center; gap: 4px;
+                   white-space: nowrap; }
+.map-legend i    { display: inline-block; width: 10px; height: 10px;
+                   border-radius: 3px; }
+
+/* ── 緊急度テーブル ─────────────────────────────────────────── */
+.emergency-table {
+  width: 100%; border-collapse: collapse; font-size: 0.78rem;
+}
+
+.emergency-table th {
+  background: var(--surface-muted); color: var(--text-secondary);
+  font-weight: 700; text-align: left; padding: 9px 10px;
+  border-bottom: 1px solid var(--border); font-size: 0.72rem;
+  letter-spacing: .03em;
+}
+
+.emergency-table td {
+  padding: 9px 10px; border-bottom: 1px solid var(--border-soft);
+  color: var(--text-secondary); vertical-align: middle;
+}
+
+.emergency-table tr:hover td { background: var(--surface-muted); }
+.emergency-table tr:last-child td { border-bottom: none; }
+
+.severity-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 66px; border-radius: 6px; padding: 3px 8px;
+  color: white !important; font-weight: 700; font-size: 0.7rem;
+}
+
+.status-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; padding: 2px 10px; font-size: 0.7rem; font-weight: 700;
+  border: 1px solid;
+}
+
+.status-pill.danger { color: var(--danger) !important;
+                      border-color: #fecaca; background: #fff5f5; }
+.status-pill.normal { color: var(--success) !important;
+                      border-color: #bbf7d0; background: #f0fdf4; }
+
+/* ── ミニパネル ─────────────────────────────────────────────── */
+.mini-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow-sm);
+  padding: 16px 18px; min-height: 260px;
+}
+
+.analytics-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow-sm);
+  padding: 18px 20px; min-height: 330px;
+}
+
+.analytics-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px;
+}
+
+/* ── チップ・タブ ───────────────────────────────────────────── */
+.select-chip, .tab-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 70px; height: 30px; border: 1px solid var(--border);
+  background: var(--surface); border-radius: 6px;
+  color: var(--text-secondary); font-size: 0.74rem; font-weight: 600;
+  transition: all var(--duration) var(--ease);
+}
+
+.select-chip { text-decoration: none; cursor: pointer; }
+.select-chip.active { background: var(--accent); border-color: var(--accent);
+                      color: white !important; }
+.select-chip:hover:not(.active) { border-color: var(--accent);
+                                   color: var(--accent); }
+
+.tab-chip { min-width: 44px; margin-left: 4px; }
+.tab-chip.active { background: var(--accent); border-color: var(--accent);
+                   color: white !important; }
+a.tab-chip { text-decoration: none; cursor: pointer; }
+a.tab-chip:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+/* ── サブトグル ─────────────────────────────────────────────── */
+.sub-toggle-row { display: flex; gap: 6px; margin: -8px 0 14px; }
+.sub-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 26px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-secondary);
+  background: var(--surface); font-size: 0.7rem; font-weight: 600;
+  text-decoration: none; transition: all var(--duration) var(--ease);
+}
+
+.sub-toggle.active { background: #eff6ff; color: var(--accent);
+                     border-color: #bfdbfe; }
+.sub-toggle:hover  { color: var(--accent); border-color: var(--accent); }
+
+/* ── ランクチャート ─────────────────────────────────────────── */
+.rank-chart { display: flex; flex-direction: column; gap: 10px; padding: 2px 4px; }
+.rank-row   { display: grid; grid-template-columns: 132px 1fr 86px;
+              gap: 8px; align-items: center; }
+.rank-name  { color: var(--text-secondary); font-size: 0.74rem; font-weight: 600;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-track { height: 14px; background: var(--border-soft); border-radius: 2px;
+              overflow: hidden; }
+.rank-fill  { height: 100%; border-radius: 2px;
+              transition: width 0.6s var(--ease); }
+.rank-value { color: var(--text-secondary); font-size: 0.76rem; font-weight: 700;
+              text-align: right; white-space: nowrap;
+              font-variant-numeric: tabular-nums; }
+
+/* ── ドーナツチャート ───────────────────────────────────────── */
+.donut-layout { display: grid; grid-template-columns: 44% 56%;
+                gap: 16px; align-items: center; }
+.donut-wrap   { position: relative; width: 200px; max-width: 100%; margin: auto; }
+.donut-svg    { width: 100%; transform: rotate(-90deg);
+                filter: drop-shadow(0 2px 4px rgba(15,23,42,.07)); }
+.donut-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--text-secondary); font-weight: 700;
+}
+.donut-center b    { font-size: 1.7rem; color: var(--text); line-height: 1; }
+.donut-center span { font-size: 0.76rem; color: var(--text-muted); }
+
+.cause-legend     { display: flex; flex-direction: column; gap: 11px; }
+.cause-legend-row { display: grid; grid-template-columns: 12px 1fr auto;
+                    gap: 10px; align-items: center; }
+.cause-legend-row span { width: 12px; height: 12px; border-radius: 3px;
+                         display: inline-block; }
+.cause-legend-row b    { font-size: 0.76rem; color: var(--text-secondary); }
+.cause-legend-row em   { font-style: normal; color: var(--text-secondary);
+                         font-weight: 700; font-size: 0.74rem; white-space: nowrap; }
+
+/* ── トレンド凡例 ───────────────────────────────────────────── */
+.trend-legend {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 16px; margin: 4px 0 8px; color: var(--text-secondary);
+  font-size: 0.72rem; font-weight: 600;
+}
+.trend-legend span { display: inline-flex; align-items: center; gap: 6px;
+                     white-space: nowrap; }
+.trend-legend i    { width: 16px; height: 3px; display: inline-block;
+                     border-radius: 999px; }
+.trend-svg { width: 100%; height: 235px; }
+
+/* ── 凡例バー ───────────────────────────────────────────────── */
+.legend-bar {
+  display: flex; gap: 14px; align-items: center;
+  background: var(--surface); border-radius: 8px; padding: 9px 14px;
+  margin-bottom: 10px; font-size: 0.76rem; flex-wrap: wrap;
+  border: 1px solid var(--border); box-shadow: var(--shadow-xs);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%;
+       display: inline-block; flex-shrink: 0; }
+
+/* ── カバレッジバー ─────────────────────────────────────────── */
+.coverage-bar {
+  background: var(--surface); border-radius: 8px; padding: 10px 14px;
+  border: 1px solid var(--border); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 0.76rem; box-shadow: var(--shadow-xs);
+}
+.coverage-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: 999px; padding: 3px 9px;
+  font-size: 0.7rem; font-weight: 700;
+}
+.tag-ok  { background: var(--success-soft); color: #166534; }
+.tag-ng  { background: var(--surface-muted); color: var(--text-secondary);
+           border: 1px solid var(--border); }
+
+/* ── 都道府県リスト ─────────────────────────────────────────── */
+.pref-scroll {
+  height: 520px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); box-shadow: var(--shadow-xs);
+}
+.pref-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border-soft);
+  transition: background var(--duration) var(--ease);
+}
+.pref-item:hover { background: var(--surface-muted); }
+.pref-item:last-child { border-bottom: none; }
+.pref-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pref-name  { font-weight: 600; font-size: 0.85rem; flex: 1; }
+.pref-count { font-size: 0.88rem; font-weight: 700; color: var(--text);
+              min-width: 80px; text-align: right;
+              font-variant-numeric: tabular-nums; }
+.pref-meta  { font-size: 0.68rem; color: var(--text-muted); }
+
+/* ── 事故起因カード ─────────────────────────────────────────── */
+.cause-card {
+  background: var(--surface); border-radius: 8px; padding: 12px 14px;
+  margin-bottom: 8px; border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--duration) var(--ease);
+}
+.cause-card:hover { box-shadow: var(--shadow-md); }
+.cause-badge  { border-radius: 6px; padding: 3px 9px; font-size: 0.7rem;
+                font-weight: 700; color: white; white-space: nowrap; }
+.cause-name   { font-size: 0.85rem; font-weight: 600; flex: 1; }
+.cause-count  { font-size: 1.05rem; font-weight: 700; color: var(--text);
+                font-variant-numeric: tabular-nums; }
+.cause-sub    { font-size: 0.7rem; color: var(--text-muted); }
+
+/* ── 各社詳細 ───────────────────────────────────────────────── */
+.company-info-bar {
+  background: var(--surface); border-radius: 8px; padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  margin-bottom: 14px; font-size: 0.8rem; color: var(--text-secondary);
+  box-shadow: var(--shadow-xs);
+}
+
+.pref-card {
+  background: var(--surface); border-radius: 8px; padding: 12px 10px;
+  text-align: center; border: 1.5px solid;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--duration) var(--ease),
+              transform var(--duration) var(--ease);
+}
+.pref-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+/* ── 東北電力NW バナー ──────────────────────────────────────── */
+.tohoku-nav-banner {
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--sidebar-border);
+  border-left: 3px solid var(--sidebar-accent);
+  border-radius: 6px; padding: 8px 12px; margin: 4px 6px 6px;
+  color: var(--sidebar-text-hover) !important;
+  font-size: 0.78rem; font-weight: 700;
+}
+.tohoku-nav-banner * { color: var(--sidebar-text-hover) !important; }
+
+/* ── セクションタイトル ─────────────────────────────────────── */
+.section-title {
+  font-size: 0.88rem; font-weight: 700; color: var(--text);
+  margin: 0 0 10px; background: transparent;
+  border-radius: 0; padding: 0; letter-spacing: -0.01em;
+}
+
+/* ── Streamlit メトリクス（fallback）──────────────────────── */
+[data-testid="stMetric"] {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+}
+[data-testid="stMetricLabel"] p { color: var(--text-secondary); font-weight: 700; }
+[data-testid="stMetricValue"]   { color: var(--text); }
+
+/* ── Streamlit ボタン（メインエリア）──────────────────────── */
+.stApp .stButton > button {
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-weight: 600; font-size: 0.82rem;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--duration) var(--ease);
+}
+.stApp .stButton > button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Streamlit セレクトボックス ────────────────────────────── */
+[data-testid="stSelectbox"] > div > div {
+  border-radius: 7px !important;
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  font-size: 0.85rem !important;
+}
+
+/* ── Streamlit タブ ─────────────────────────────────────────── */
+[data-testid="stTabs"] [role="tab"] {
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+  color: var(--accent) !important;
+}
+
+/* ── Streamlit スピナー ─────────────────────────────────────── */
+[data-testid="stSpinner"] { color: var(--text-muted) !important; }
+
+/* ── スクロールバー ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── サイドバーのスクロールバーを非表示に ─────────────────── */
+section[data-testid="stSidebar"] ::-webkit-scrollbar { display: none; }
+section[data-testid="stSidebar"] { scrollbar-width: none; }

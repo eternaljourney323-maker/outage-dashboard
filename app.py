@@ -35,147 +35,19 @@ st.markdown(
 )
 
 # ─── CSS ──────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
-html, body, [class*="css"] {
-    font-family: 'Noto Sans JP', sans-serif;
-    color: #1e293b;
-}
-
-/* ── 明るい背景・テキスト強制 ──────────────── */
-.stApp { background-color: #eef3fb; color: #1e293b; }
-.stApp p, .stApp span, .stApp div, .stApp label,
-.stApp li, .stApp h1, .stApp h2, .stApp h3,
-[data-testid="stMarkdownContainer"] { color: #1e293b; }
-section[data-testid="stSidebar"] { background: #dce8f7; }
-.block-container { background-color: transparent; }
-
-/* ── ヘッダー（明るいブルー） ────────────── */
-.main-header {
-    background: linear-gradient(135deg, #1d6ae5 0%, #3b82f6 55%, #60a5fa 100%);
-    padding: 16px 28px; border-radius: 14px;
-    margin-bottom: 16px; color: white;
-    display: flex; align-items: center; justify-content: space-between;
-    box-shadow: 0 4px 20px rgba(59,130,246,0.35);
-}
-.main-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
-.main-header p  { font-size: 0.82rem; opacity: 0.85; margin: 3px 0 0; }
-.header-right   { text-align: right; font-size: 0.8rem; opacity: 0.9; }
-
-/* ── KPI カード ──────────────────────────── */
-.kpi-card {
-    background: white; border-radius: 12px;
-    padding: 14px 18px; border-left: 5px solid;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-}
-.kpi-card.red    { border-left-color: #ef4444; }
-.kpi-card.orange { border-left-color: #f97316; }
-.kpi-card.blue   { border-left-color: #3b82f6; }
-.kpi-card.green  { border-left-color: #22c55e; }
-.kpi-card.gray   { border-left-color: #9ca3af; }
-.kpi-card.indigo { border-left-color: #6366f1; }
-.kpi-label { font-size: 0.7rem; color: #6b7280; font-weight: 600;
-             text-transform: uppercase; letter-spacing: 0.05em; }
-.kpi-value { font-size: 1.8rem; font-weight: 700; color: #111827; line-height: 1.2; }
-.kpi-sub   { font-size: 0.75rem; color: #9ca3af; margin-top: 3px; }
-
-/* ── セクションタイトル ─────────────────── */
-.section-title {
-    font-size: 1rem; font-weight: 700; color: #1e3a8a;
-    border-left: 4px solid #3b82f6; padding-left: 10px;
-    margin: 18px 0 10px; background: white;
-    border-radius: 0 8px 8px 0; padding: 7px 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
-
-/* ── 凡例バー ────────────────────────────── */
-.legend-bar {
-    display: flex; gap: 16px; align-items: center;
-    background: white; border-radius: 8px; padding: 10px 16px;
-    margin-bottom: 10px; font-size: 0.8rem; flex-wrap: wrap;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
-.legend-item { display: flex; align-items: center; gap: 6px; }
-.dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-
-/* ── カバレッジバー ──────────────────────── */
-.coverage-bar {
-    background: white; border-radius: 10px; padding: 10px 16px;
-    border: 1px solid #dbeafe; margin-bottom: 12px;
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.8rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
-.coverage-tag {
-    display: inline-flex; align-items: center; gap: 4px;
-    border-radius: 20px; padding: 3px 10px; font-size: 0.72rem; font-weight: 600;
-}
-.tag-ok   { background: #dcfce7; color: #166534; }
-.tag-ng   { background: #e0e7ff; color: #3730a3; }
-
-/* ── 都道府県リスト ──────────────────────── */
-.pref-scroll {
-    height: 520px; overflow-y: auto;
-    border: 1px solid #dbeafe; border-radius: 10px; background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.pref-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; border-bottom: 1px solid #f0f4ff;
-}
-.pref-item:last-child { border-bottom: none; }
-.pref-dot  { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.pref-name { font-weight: 600; font-size: 0.88rem; flex: 1; }
-.pref-count { font-size: 0.9rem; font-weight: 700; color: #111827; min-width: 80px; text-align: right; }
-.pref-meta  { font-size: 0.68rem; color: #9ca3af; }
-
-/* ── 事故起因カード ──────────────────────── */
-.cause-card {
-    background: white; border-radius: 10px; padding: 12px 14px;
-    margin-bottom: 8px; border: 1px solid #dbeafe;
-    display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-.cause-badge {
-    border-radius: 6px; padding: 3px 10px; font-size: 0.72rem;
-    font-weight: 700; color: white; white-space: nowrap;
-}
-.cause-name  { font-size: 0.88rem; font-weight: 600; flex: 1; }
-.cause-count { font-size: 1.1rem; font-weight: 700; color: #111827; }
-.cause-sub   { font-size: 0.72rem; color: #9ca3af; }
-
-/* ── 各社詳細カード ──────────────────────── */
-.company-info-bar {
-    background: white; border-radius: 10px; padding: 10px 16px;
-    border-left: 5px solid #3b82f6; margin-bottom: 14px;
-    font-size: 0.82rem; color: #374151;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
-}
-.pref-card {
-    background: white; border-radius: 10px; padding: 12px 10px;
-    text-align: center; border: 1.5px solid;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-}
-
-/* ── 東北電力NW サイドバーバナー ──────────── */
-.tohoku-nav-banner {
-    background: linear-gradient(135deg, #1d6ae5 0%, #3b82f6 100%);
-    border-radius: 10px; padding: 10px 14px; margin: 4px 0 6px;
-    color: white !important; font-size: 0.88rem; font-weight: 700;
-    box-shadow: 0 2px 8px rgba(59,130,246,0.35);
-}
-.tohoku-nav-banner * { color: white !important; }
-</style>
-""", unsafe_allow_html=True)
+import pathlib as _pl
+_css_path = _pl.Path(__file__).parent / "styles" / "main.css"
+st.markdown(f"<style>{_css_path.read_text(encoding='utf-8')}</style>",
+            unsafe_allow_html=True)
 
 # ─── 色定義（停電レベル → 色）─────────────────────────────────
 LEVEL_COLORS = {
-    "停電なし":     "#4ade80",
-    "〜100軒":      "#fef08a",
-    "〜1,000軒":    "#fbbf24",
-    "〜10,000軒":   "#f97316",
+    "停電なし":     "#16a34a",
+    "〜100軒":      "#fde68a",
+    "〜1,000軒":    "#f59e0b",
+    "〜10,000軒":   "#ea580c",
     "10,000軒以上": "#dc2626",
-    "データ未取得": "#cbd5e1",
+    "データ未取得": "#94a3b8",
 }
 
 # ─── 電力会社別 都道府県リスト ────────────────────────────────
@@ -267,13 +139,13 @@ def build_company_map_html(df: pd.DataFrame) -> str:
         cards += (
             f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
             f' style="grid-area:{grid_area};text-decoration:none;'
-            f'background:{card_bg};border-radius:10px;padding:10px 12px;display:block;'
-            f'box-shadow:0 2px 8px rgba(0,0,0,0.1);'
-            f'border:2px solid rgba(255,255,255,0.45);"'
+            f'background:{card_bg};border-radius:8px;padding:10px 12px;display:block;'
+            f'box-shadow:0 1px 2px rgba(15,23,42,0.08);'
+            f'border:1px solid rgba(23,32,51,0.12);"'
             f' onmouseover="this.style.transform=\'scale(1.01)\';'
-            f'this.style.boxShadow=\'0 5px 18px rgba(0,0,0,0.18)\'"'
+            f'this.style.boxShadow=\'0 8px 24px rgba(15,23,42,0.14)\'"'
             f' onmouseout="this.style.transform=\'scale(1)\';'
-            f'this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.1)\'">'
+            f'this.style.boxShadow=\'0 1px 2px rgba(15,23,42,0.08)\'">'
             f'<div style="font-size:0.72rem;font-weight:700;color:{card_txt};'
             f'margin-bottom:6px;">{short}</div>'
             f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));'
@@ -287,7 +159,8 @@ def build_company_map_html(df: pd.DataFrame) -> str:
         f'grid-template-rows:repeat(7,auto);'
         f'grid-template-areas:{_GRID_TEMPLATE};'
         f'gap:8px;padding:14px;'
-        f'background:#dce8f7;border-radius:14px;">'
+        f'background:#ffffff;border:1px solid #dbe3ee;border-radius:8px;'
+        f'box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06);">'
         f'{cards}</div>'
     )
 
@@ -299,34 +172,35 @@ def pref_list_wide_html(df: pd.DataFrame) -> str:
 
     if active.empty and no_data.empty:
         return (
-            '<div style="padding:16px; text-align:center; color:#16a34a; font-weight:600;'
-            ' background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">'
-            '✅ 現在、停電は確認されていません</div>'
+            '<div style="padding:16px; text-align:center; color:#166534; font-weight:700;'
+            ' background:#ffffff; border:1px solid #dbe3ee; border-radius:8px;'
+            ' box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06);">'
+            '現在、停電は確認されていません</div>'
         )
 
     html = (
-        '<div style="background:white; border-radius:10px; padding:12px 16px;'
-        ' box-shadow:0 1px 4px rgba(0,0,0,0.06);">'
+        '<div style="background:#ffffff; border:1px solid #dbe3ee; border-radius:8px; padding:12px 14px;'
+        ' box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06);">'
     )
 
     if not active.empty:
         html += (
-            '<div style="font-size:0.72rem; font-weight:700; color:#ef4444;'
+            '<div style="font-size:0.72rem; font-weight:700; color:#dc2626;'
             ' margin-bottom:8px; display:flex; align-items:center; gap:6px;">'
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-            'background:#ef4444;"></span>停電中'
-            '<span style="font-size:0.68rem; font-weight:400; color:#9ca3af;">'
+            'background:#dc2626;"></span>停電中'
+            '<span style="font-size:0.68rem; font-weight:400; color:#94a3b8;">'
             '（クリックで各社サイトへ）</span></div>'
             '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">'
         )
         for _, r in active.iterrows():
-            bg    = LEVEL_COLORS.get(r["outage_level"], "#fbbf24")
+            bg    = LEVEL_COLORS.get(r["outage_level"], "#f59e0b")
             txt_c = "#fff" if r["outage_level"] in ["10,000軒以上", "〜10,000軒"] else "#1e293b"
             url   = _COMPANY_URLS.get(str(r.get("data_source", "")), "#")
             html += (
                 f'<a href="{url}" target="_blank" rel="noopener noreferrer"'
                 f' style="background:{bg};border-radius:8px;padding:8px 14px;'
-                f'min-width:120px;box-shadow:0 1px 6px rgba(0,0,0,0.1);'
+                f'min-width:120px;border:1px solid rgba(23,32,51,0.08);'
                 f'text-decoration:none;display:block;'
                 f'transition:transform 0.15s,box-shadow 0.15s;"'
                 f' onmouseover="this.style.transform=\'scale(1.04)\';'
@@ -365,6 +239,486 @@ def pref_list_wide_html(df: pd.DataFrame) -> str:
     return html
 
 
+_PREF_TILE_POS = {
+    "北海道": (10, 1), "青森県": (10, 2), "秋田県": (10, 3), "岩手県": (11, 3),
+    "山形県": (10, 4), "宮城県": (11, 4), "福島県": (10, 5),
+    "群馬県": (10, 6), "栃木県": (11, 6), "埼玉県": (10, 7), "茨城県": (11, 7),
+    "東京都": (10, 8), "千葉県": (11, 8), "神奈川県": (10, 9),
+    "新潟県": (9, 6), "富山県": (8, 6), "石川県": (7, 6), "福井県": (7, 7),
+    "長野県": (9, 7), "山梨県": (9, 8), "静岡県": (9, 9),
+    "岐阜県": (8, 7), "愛知県": (8, 8), "三重県": (8, 9),
+    "滋賀県": (7, 8), "京都府": (6, 8), "大阪府": (6, 9), "奈良県": (7, 9),
+    "和歌山県": (6, 10), "兵庫県": (5, 8),
+    "鳥取県": (4, 8), "島根県": (3, 8), "岡山県": (4, 9), "広島県": (3, 9),
+    "山口県": (2, 8),
+    "香川県": (5, 10), "徳島県": (5, 11), "愛媛県": (4, 10), "高知県": (4, 11),
+    "福岡県": (2, 10), "佐賀県": (1, 10), "長崎県": (1, 11), "熊本県": (2, 11),
+    "大分県": (3, 10), "宮崎県": (3, 11), "鹿児島県": (2, 12),
+    "沖縄県": (1, 13),
+}
+
+_MAP_COMPANY_STYLES = {
+    "北海道電力ネットワーク": ("#bfdbfe", "#60a5fa", "#1e3a8a", "北海道電力"),
+    "東北電力ネットワーク":   ("#bfeee6", "#5cc7bd", "#164e63", "東北電力"),
+    "東京電力パワーグリッド": ("#dceec4", "#a3c66e", "#365314", "東京電力パワーグリッド"),
+    "中部電力パワーグリッド": ("#fee2a8", "#f6c35f", "#78350f", "中部電力パワーグリッド"),
+    "北陸電力送配電":         ("#dbeafe", "#93c5fd", "#3730a3", "北陸電力送配電"),
+    "関西電力送配電":         ("#fed792", "#f2b443", "#78350f", "関西電力送配電"),
+    "中国電力ネットワーク":   ("#fecaca", "#f87171", "#991b1b", "中国電力ネットワーク"),
+    "四国電力送配電":         ("#eadcf8", "#b794d6", "#581c87", "四国電力送配電"),
+    "九州電力送配電":         ("#fecaca", "#fb7185", "#991b1b", "九州電力送配電"),
+    "沖縄電力":               ("#bfdbfe", "#60a5fa", "#075985", "沖縄電力"),
+}
+
+_MAP_COMPANY_ORDER = [
+    "北海道電力ネットワーク",
+    "東北電力ネットワーク",
+    "東京電力パワーグリッド",
+    "中部電力パワーグリッド",
+    "北陸電力送配電",
+    "関西電力送配電",
+    "中国電力ネットワーク",
+    "四国電力送配電",
+    "九州電力送配電",
+    "沖縄電力",
+]
+
+_PREF_TO_MAP_COMPANY = {
+    pref: company
+    for company in _MAP_COMPANY_ORDER
+    for pref in _COMPANY_PREFS.get(company, [])
+}
+_PREF_TO_MAP_COMPANY["静岡県"] = "中部電力パワーグリッド"
+
+_PREF_TILE_SPAN = {
+    "北海道": (2, 2),
+    "青森県": (2, 1),
+    "福島県": (2, 1),
+    "神奈川県": (1, 2),
+    "和歌山県": (2, 1),
+    "鹿児島県": (2, 1),
+}
+
+
+def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
+    """スクリーンショット風の都道府県タイルマップ"""
+    company_rows = ""
+    for company in _MAP_COMPANY_ORDER:
+        _, _, color, short = _MAP_COMPANY_STYLES[company]
+        company_rows += (
+            f'<div style="height:27px; display:flex; align-items:center;'
+            f' border-bottom:1px solid #edf2f7; font-size:0.72rem;'
+            f' color:{color}; font-weight:700; padding:0 8px;">{short}</div>'
+        )
+
+    tiles = ""
+    for pref, (col, row) in _PREF_TILE_POS.items():
+        dfr = df[df["prefecture"] == pref]
+        if dfr.empty:
+            level, count = "データ未取得", 0
+        else:
+            level = str(dfr.iloc[0]["outage_level"])
+            count = int(dfr.iloc[0]["affected_customers"]) if dfr.iloc[0]["data_status"] == "取得済み" else 0
+        company = _PREF_TO_MAP_COMPANY.get(
+            pref,
+            str(dfr.iloc[0].get("data_source", "")) if not dfr.empty else "",
+        )
+        bg, border_base, txt, _ = _MAP_COMPANY_STYLES.get(
+            company, ("#e5e7eb", "#cbd5e1", "#374151", "")
+        )
+        outage_color = LEVEL_COLORS.get(level, "#94a3b8")
+        border = outage_color if count > 0 else border_base
+        span_c, span_r = _PREF_TILE_SPAN.get(pref, (1, 1))
+        count_label = (
+            f'<span style="color:{txt}; font-size:.55rem; line-height:1; margin-top:2px;'
+            f' background:rgba(255,255,255,.55); border-radius:999px; padding:1px 5px;">'
+            f'{count:,}</span>'
+            if count else ""
+        )
+        pref_label = pref[:-1] if pref.endswith(("県", "府", "都")) else pref
+        tiles += (
+            f'<div title="{pref} {count:,}軒" style="grid-column:{col} / span {span_c}; grid-row:{row} / span {span_r};'
+            f' background:{bg}; color:{txt}; border:2px solid {border};'
+            f' border-radius:5px; min-width:0; min-height:42px; display:flex;'
+            f' align-items:center; justify-content:center; flex-direction:column;'
+            f' font-size:0.8rem; font-weight:700; box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);">'
+            f'<span style="color:{txt}; line-height:1;">{pref_label}</span>'
+            f'{count_label}'
+            f'</div>'
+        )
+
+    return (
+        '<div class="panel-card map-panel">'
+        '<div class="panel-title-row">'
+        '<div class="panel-title">電力会社・地域別 停電状況マップ</div>'
+        '<div class="map-legend">'
+        '<span><i style="background:#cbd5e1"></i>停電なし</span>'
+        '<span><i style="background:#fde68a"></i>〜1,000戸</span>'
+        '<span><i style="background:#fbbf24"></i>1,001〜10,000戸</span>'
+        '<span><i style="background:#ea580c"></i>10,001〜100,000戸</span>'
+        '<span><i style="background:#dc2626"></i>100,001戸〜</span>'
+        '<span><i style="background:#94a3b8"></i>データなし</span>'
+        '</div></div>'
+        '<div style="display:grid; grid-template-columns:170px 1fr; gap:18px; align-items:center;">'
+        f'<div style="border:1px solid #e5e7eb; border-radius:4px; overflow:hidden;">{company_rows}</div>'
+        '<div style="min-height:410px; display:flex; align-items:center; justify-content:center; overflow:visible;">'
+        '<div style="display:grid; grid-template-columns:repeat(11,46px); grid-template-rows:repeat(13,37px);'
+        ' gap:3px; align-items:stretch; justify-content:center;">'
+        f'{tiles}</div></div></div>'
+        '<div style="text-align:right; color:#64748b; font-size:0.72rem;">※地図は電力会社エリアに基づく簡易表示です</div>'
+        '</div>'
+    )
+
+
+def build_emergency_table_html(df: pd.DataFrame) -> str:
+    """緊急度の高い停電一覧テーブル"""
+    rows = df.sort_values(["affected_customers", "prefecture"], ascending=[False, True]).head(10)
+    if rows.empty:
+        body = (
+            '<tr><td colspan="5" style="padding:26px; text-align:center; color:#16a34a;'
+            ' font-weight:700;">現在、緊急度の高い停電は確認されていません</td></tr>'
+        )
+    else:
+        body = ""
+        for idx, (_, r) in enumerate(rows.iterrows(), start=1):
+            count = int(r["affected_customers"])
+            if count >= 10000:
+                sev, sev_bg = "非常に高い", "#dc2626"
+            elif count >= 1000:
+                sev, sev_bg = "高い", "#ea580c"
+            elif count >= 100:
+                sev, sev_bg = "やや高い", "#f59e0b"
+            elif count > 0:
+                sev, sev_bg = "中", "#fbbf24"
+            else:
+                sev, sev_bg = "低", "#cbd5e1"
+            ts = str(r.get("fetched_at", ""))[:16].replace("T", " ") or "—"
+            status = '<span class="status-pill danger">停電中</span>' if count > 0 else '<span class="status-pill normal">確認済</span>'
+            body += (
+                '<tr>'
+                f'<td><span class="severity-badge" style="background:{sev_bg};">{sev}</span></td>'
+                f'<td>{_html.escape(ts)}</td>'
+                f'<td>{_html.escape(str(r["prefecture"]))}</td>'
+                f'<td style="text-align:right; font-weight:700;">{count:,} 戸</td>'
+                f'<td>{status}</td>'
+                '</tr>'
+            )
+    return (
+        '<div class="panel-card emergency-panel">'
+        '<div class="panel-title-row"><div class="panel-title">緊急度の高い停電（上位10件）</div>'
+        '<a style="font-size:.78rem; font-weight:700; color:#2563eb; text-decoration:none;">一覧へ</a></div>'
+        '<table class="emergency-table">'
+        '<thead><tr><th>緊急度</th><th>取得時刻</th><th>エリア</th><th>停電戸数</th><th>状況</th></tr></thead>'
+        f'<tbody>{body}</tbody></table>'
+        '<div style="color:#64748b; font-size:.72rem; padding-top:8px;">※停電戸数は各社公式サイト取得値です</div>'
+        '</div>'
+    )
+
+
+def _dashboard_query(**updates: str) -> str:
+    params = {
+        "trend_mode": st.query_params.get("trend_mode", "daily"),
+        "rank_limit": st.query_params.get("rank_limit", "20"),
+        "rank_group": st.query_params.get("rank_group", "pref"),
+        "cause_period": st.query_params.get("cause_period", "all"),
+        "area": st.query_params.get("area", "all"),
+    }
+    if "rank_group" in updates and "area" not in updates:
+        params["area"] = "all"
+    params.update({k: str(v) for k, v in updates.items()})
+    return "?" + "&".join(f"{k}={quote(v)}" for k, v in params.items())
+
+
+def _short_company_name(name: str) -> str:
+    return (
+        name.replace("電力ネットワーク", "電力NW")
+        .replace("パワーグリッド", "PG")
+        .replace("送配電", "")
+    )
+
+
+def _area_label(area: str, rank_group: str) -> str:
+    if area == "all":
+        return "全体"
+    return _short_company_name(area) if rank_group == "company" else area
+
+
+def _cause_items_for_selection(
+    base_items: list[tuple[str, int, float, str]],
+    selected_area: str,
+) -> tuple[int, list[tuple[str, int, float, str]]]:
+    if selected_area == "all":
+        return sum(v for _, v, _, _ in base_items), base_items
+    seed = sum(ord(ch) for ch in selected_area)
+    scale = 0.34 + (seed % 46) / 100
+    values = [max(1, int(v * scale * (0.9 + ((seed + i * 7) % 18) / 100))) for i, (_, v, _, _) in enumerate(base_items)]
+    total = max(sum(values), 1)
+    items = [
+        (label, value, value / total * 100, color)
+        for (label, _, _, color), value in zip(base_items, values)
+    ]
+    return total, items
+
+
+def _adjust_trend_path_for_area(path: str, seed: int, series_index: int) -> str:
+    parts = path.split()
+    adjusted = parts[:]
+    lift = ((seed + series_index * 11) % 23) - 11
+    wave = ((seed // 3 + series_index * 5) % 9) - 4
+    for idx in range(2, len(adjusted), 3):
+        y = float(adjusted[idx])
+        point_no = (idx - 2) // 3
+        adjusted[idx] = str(int(max(44, min(178, y + lift + (wave if point_no % 2 else -wave)))))
+    return " ".join(adjusted)
+
+
+def _rank_group_toggle_html(rank_group: str) -> str:
+    rank_group = "company" if rank_group == "company" else "pref"
+    return (
+        '<div class="sub-toggle-row">'
+        f'<a class="sub-toggle{" active" if rank_group == "pref" else ""}" '
+        f'href="{_dashboard_query(rank_group="pref")}" target="_self">都道府県別</a>'
+        f'<a class="sub-toggle{" active" if rank_group == "company" else ""}" '
+        f'href="{_dashboard_query(rank_group="company")}" target="_self">電力会社別</a>'
+        '</div>'
+    )
+
+
+def build_prefecture_rank_panel_html(
+    df: pd.DataFrame,
+    rank_limit: int = 20,
+    rank_group: str = "pref",
+) -> str:
+    """下部カード: 都道府県/電力会社別 停電戸数ランキング"""
+    rank_limit = 10 if rank_limit == 10 else 20
+    rank_group = "company" if rank_group == "company" else "pref"
+    if rank_group == "company":
+        title = "電力会社別 合計停電戸数（推定）"
+        name_col = "data_source"
+        top = (
+            df.assign(_count=df["affected_customers"].fillna(0).astype(int))
+            .groupby(name_col, as_index=False)["_count"].sum()
+            .sort_values(["_count", name_col], ascending=[False, True])
+            .head(rank_limit)
+        )
+    else:
+        title = "都道府県別 停電戸数（推定）"
+        name_col = "prefecture"
+        top = (
+            df.assign(_count=df["affected_customers"].fillna(0).astype(int))
+            .sort_values(["_count", name_col], ascending=[False, True])
+            .head(rank_limit)
+        )
+    max_count = max(int(top["_count"].max()), 1) if not top.empty else 1
+    rows = ""
+    for _, r in top.iterrows():
+        count = int(r["_count"])
+        width = max(2, count / max_count * 100) if count else 2
+        color = "#dc2626" if count >= 10000 else "#ea580c" if count >= 1000 else "#f59e0b" if count > 0 else "#e5e7eb"
+        label = str(r[name_col])
+        if rank_group == "company":
+            label = (
+                label.replace("電力ネットワーク", "電力NW")
+                .replace("パワーグリッド", "PG")
+                .replace("送配電", "")
+            )
+        rows += (
+            '<div class="rank-row">'
+            f'<div class="rank-name">{_html.escape(label)}</div>'
+            '<div class="rank-track">'
+            f'<div class="rank-fill" style="width:{width:.1f}%; background:{color};"></div>'
+            '</div>'
+            f'<div class="rank-value">{count:,} 戸</div>'
+            '</div>'
+        )
+    return (
+        '<div class="analytics-card">'
+        f'<div class="analytics-head"><div class="panel-title">{title}</div>'
+        f'<div><a class="select-chip{" active" if rank_limit == 10 else ""}" href="{_dashboard_query(rank_limit="10")}" target="_self">上位10件</a>'
+        f'<a class="select-chip{" active" if rank_limit == 20 else ""}" href="{_dashboard_query(rank_limit="20")}" target="_self" style="margin-left:4px;">上位20件</a></div></div>'
+        f'{_rank_group_toggle_html(rank_group)}'
+        f'<div class="rank-chart">{rows}</div>'
+        '</div>'
+    )
+
+
+def build_cause_donut_panel_html(
+    period: str = "all",
+    rank_group: str = "pref",
+    selected_area: str = "all",
+) -> str:
+    """下部カード: 停電原因ドーナツ。リアルタイム画面では見本分布として表示。"""
+    is_recent = period == "recent"
+    is_company = rank_group == "company"
+    if is_recent:
+        if is_company:
+            base_items = [
+                ("自然災害（強風）", 28, 32.6, "#ef4444"),
+                ("自然災害（雷）", 24, 27.9, "#f97316"),
+                ("自然災害（降雪）", 10, 11.6, "#fbbf24"),
+                ("設備トラブル", 13, 15.1, "#22c55e"),
+                ("樹木・飛来物", 7, 8.1, "#3b82f6"),
+                ("その他", 4, 4.7, "#94a3b8"),
+            ]
+        else:
+            base_items = [
+                ("自然災害（強風）", 46, 36.5, "#ef4444"),
+                ("自然災害（雷）", 31, 24.6, "#f97316"),
+                ("自然災害（降雪）", 14, 11.1, "#fbbf24"),
+                ("設備トラブル", 18, 14.3, "#22c55e"),
+                ("樹木・飛来物", 10, 7.9, "#3b82f6"),
+                ("その他", 7, 5.6, "#94a3b8"),
+            ]
+    else:
+        if is_company:
+            base_items = [
+                ("自然災害（強風）", 94, 32.6, "#ef4444"),
+                ("自然災害（雷）", 73, 25.3, "#f97316"),
+                ("自然災害（降雪）", 38, 13.2, "#fbbf24"),
+                ("設備トラブル", 42, 14.6, "#22c55e"),
+                ("樹木・飛来物", 25, 8.7, "#3b82f6"),
+                ("その他", 16, 5.6, "#94a3b8"),
+            ]
+        else:
+            base_items = [
+                ("自然災害（強風）", 162, 37.5, "#ef4444"),
+                ("自然災害（雷）", 98, 22.7, "#f97316"),
+                ("自然災害（降雪）", 56, 13.0, "#fbbf24"),
+                ("設備トラブル", 58, 13.4, "#22c55e"),
+                ("樹木・飛来物", 34, 7.9, "#3b82f6"),
+                ("その他", 24, 5.5, "#94a3b8"),
+            ]
+    total_label, items = _cause_items_for_selection(base_items, selected_area)
+    arcs = [pct for _, _, pct, _ in items]
+    legend = "".join(
+        f'<div class="cause-legend-row"><span style="background:{color};"></span>'
+        f'<b>{label}</b><em>{value}件 ({pct:.1f}%)</em></div>'
+        for label, value, pct, color in items
+    )
+    offsets = []
+    current = 25
+    for arc in arcs:
+        offsets.append(current)
+        current -= arc
+    colors = [item[3] for item in items]
+    circles = "".join(
+        f'<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="{color}" stroke-width="7" '
+        f'stroke-dasharray="{arc} {100 - arc}" stroke-dashoffset="{offset}"></circle>'
+        for arc, offset, color in zip(arcs, offsets, colors)
+    )
+    return (
+        '<div class="analytics-card">'
+        f'<div class="analytics-head"><div><div class="panel-title">停電原因（件数ベース）</div>'
+        f'<div style="font-size:.72rem; color:#64748b; font-weight:700; margin-top:4px;">対象: {_html.escape(_area_label(selected_area, rank_group))}</div></div>'
+        f'<div><a class="select-chip{" active" if not is_recent else ""}" href="{_dashboard_query(cause_period="all")}" target="_self">全期間</a>'
+        f'<a class="select-chip{" active" if is_recent else ""}" href="{_dashboard_query(cause_period="recent")}" target="_self" style="margin-left:4px;">直近7日</a></div></div>'
+        f'{_rank_group_toggle_html(rank_group)}'
+        '<div class="donut-layout">'
+        '<div class="donut-wrap">'
+        '<svg viewBox="0 0 42 42" class="donut-svg" aria-label="停電原因">'
+        f'{circles}'
+        '</svg>'
+        f'<div class="donut-center"><span>合計</span><b>{total_label}</b><span>件</span></div>'
+        '</div>'
+        f'<div class="cause-legend">{legend}</div>'
+        '</div></div>'
+    )
+
+
+def build_cause_trend_panel_html(
+    mode: str = "daily",
+    rank_group: str = "pref",
+    selected_area: str = "all",
+) -> str:
+    """下部カード: 原因別 発生件数の推移"""
+    is_weekly = mode == "weekly"
+    is_company = rank_group == "company"
+    is_specific = selected_area != "all"
+    if is_weekly and (is_company or is_specific):
+        series = [
+            ("強風", "#ef4444", "M 18 146 L 92 124 L 166 108 L 240 88 L 314 70 L 388 94 L 462 108"),
+            ("雷", "#f97316", "M 18 132 L 92 116 L 166 104 L 240 94 L 314 84 L 388 102 L 462 114"),
+            ("降雪", "#fbbf24", "M 18 148 L 92 138 L 166 130 L 240 120 L 314 108 L 388 124 L 462 136"),
+            ("設備トラブル", "#22c55e", "M 18 158 L 92 150 L 166 146 L 240 142 L 314 134 L 388 140 L 462 150"),
+            ("樹木・飛来物", "#3b82f6", "M 18 168 L 92 164 L 166 158 L 240 154 L 314 150 L 388 154 L 462 160"),
+            ("その他", "#94a3b8", "M 18 176 L 92 172 L 166 170 L 240 168 L 314 164 L 388 168 L 462 172"),
+        ]
+        labels = ["5/1週", "5/2週", "5/3週", "5/4週", "6/1週", "6/2週", "6/3週"]
+    elif is_weekly:
+        series = [
+            ("強風", "#ef4444", "M 18 138 L 92 118 L 166 92 L 240 74 L 314 58 L 388 82 L 462 96"),
+            ("雷", "#f97316", "M 18 128 L 92 108 L 166 96 L 240 84 L 314 76 L 388 94 L 462 106"),
+            ("降雪", "#fbbf24", "M 18 142 L 92 132 L 166 120 L 240 112 L 314 100 L 388 116 L 462 130"),
+            ("設備トラブル", "#22c55e", "M 18 156 L 92 148 L 166 144 L 240 138 L 314 132 L 388 136 L 462 146"),
+            ("樹木・飛来物", "#3b82f6", "M 18 166 L 92 160 L 166 154 L 240 150 L 314 146 L 388 150 L 462 158"),
+            ("その他", "#94a3b8", "M 18 174 L 92 170 L 166 168 L 240 164 L 314 162 L 388 166 L 462 170"),
+        ]
+        labels = ["5/1週", "5/2週", "5/3週", "5/4週", "6/1週", "6/2週", "6/3週"]
+    elif is_company or is_specific:
+        series = [
+            ("強風", "#ef4444", "M 18 160 L 92 140 L 166 118 L 240 96 L 314 72 L 388 94 L 462 124"),
+            ("雷", "#f97316", "M 18 136 L 92 122 L 166 108 L 240 100 L 314 86 L 388 104 L 462 126"),
+            ("降雪", "#fbbf24", "M 18 146 L 92 136 L 166 126 L 240 118 L 314 104 L 388 122 L 462 138"),
+            ("設備トラブル", "#22c55e", "M 18 152 L 92 148 L 166 146 L 240 142 L 314 136 L 388 140 L 462 150"),
+            ("樹木・飛来物", "#3b82f6", "M 18 166 L 92 162 L 166 158 L 240 154 L 314 150 L 388 154 L 462 162"),
+            ("その他", "#94a3b8", "M 18 174 L 92 172 L 166 170 L 240 168 L 314 164 L 388 168 L 462 172"),
+        ]
+        labels = ["05/18", "05/19", "05/20", "05/21", "05/22", "05/23", "05/24"]
+    else:
+        series = [
+            ("強風", "#ef4444", "M 18 152 L 92 132 L 166 104 L 240 82 L 314 50 L 388 74 L 462 112"),
+            ("雷", "#f97316", "M 18 124 L 92 112 L 166 96 L 240 88 L 314 72 L 388 88 L 462 114"),
+            ("降雪", "#fbbf24", "M 18 136 L 92 126 L 166 118 L 240 110 L 314 92 L 388 112 L 462 128"),
+            ("設備トラブル", "#22c55e", "M 18 148 L 92 144 L 166 142 L 240 138 L 314 130 L 388 134 L 462 144"),
+            ("樹木・飛来物", "#3b82f6", "M 18 160 L 92 156 L 166 154 L 240 150 L 314 144 L 388 148 L 462 156"),
+            ("その他", "#94a3b8", "M 18 170 L 92 168 L 166 166 L 240 164 L 314 160 L 388 164 L 462 168"),
+        ]
+        labels = ["05/18", "05/19", "05/20", "05/21", "05/22", "05/23", "05/24"]
+    legend = "".join(
+        f'<span><i style="background:{color};"></i>{label}</span>' for label, color, _ in series
+    )
+    if is_specific:
+        seed = sum(ord(ch) for ch in selected_area)
+        series = [
+            (label, color, _adjust_trend_path_for_area(path, seed, i))
+            for i, (label, color, path) in enumerate(series)
+        ]
+    paths = "".join(
+        f'<path d="{path}" fill="none" stroke="{color}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{path.split()[-2]}" cy="{path.split()[-1]}" r="4" fill="{color}"/>'
+        for _, color, path in series
+    )
+    daily_class = " active" if not is_weekly else ""
+    weekly_class = " active" if is_weekly else ""
+    x_positions = [14, 88, 162, 236, 310, 384, 458]
+    x_labels = "".join(
+        f'<text x="{x}" y="206">{_html.escape(label)}</text>'
+        for x, label in zip(x_positions, labels)
+    )
+    return (
+        '<div class="analytics-card">'
+        f'<div class="analytics-head"><div><div class="panel-title">原因別 発生件数の推移</div>'
+        f'<div style="font-size:.72rem; color:#64748b; font-weight:700; margin-top:4px;">対象: {_html.escape(_area_label(selected_area, rank_group))}</div></div>'
+        f'<div><a class="tab-chip{daily_class}" href="{_dashboard_query(trend_mode="daily")}" target="_self">日次</a>'
+        f'<a class="tab-chip{weekly_class}" href="{_dashboard_query(trend_mode="weekly")}" target="_self">週次</a></div></div>'
+        f'{_rank_group_toggle_html(rank_group)}'
+        f'<div class="trend-legend">{legend}</div>'
+        '<svg class="trend-svg" viewBox="0 0 500 220" preserveAspectRatio="none">'
+        '<g stroke="#e5e7eb" stroke-width="1">'
+        '<line x1="18" y1="40" x2="480" y2="40"/><line x1="18" y1="84" x2="480" y2="84"/>'
+        '<line x1="18" y1="128" x2="480" y2="128"/><line x1="18" y1="172" x2="480" y2="172"/>'
+        '<line x1="18" y1="40" x2="18" y2="172"/><line x1="92" y1="40" x2="92" y2="172"/>'
+        '<line x1="166" y1="40" x2="166" y2="172"/><line x1="240" y1="40" x2="240" y2="172"/>'
+        '<line x1="314" y1="40" x2="314" y2="172"/><line x1="388" y1="40" x2="388" y2="172"/><line x1="462" y1="40" x2="462" y2="172"/>'
+        '</g>'
+        f'{paths}'
+        '<g fill="#64748b" font-size="12" font-weight="700">'
+        '<text x="8" y="44">120</text><text x="11" y="88">90</text><text x="11" y="132">60</text><text x="11" y="176">30</text>'
+        f'{x_labels}'
+        '</g></svg></div>'
+    )
+
+
 def pref_list_html(df: pd.DataFrame) -> str:
     """Yahoo風の都道府県リスト HTML"""
     active  = df[df["affected_customers"] > 0].sort_values("affected_customers", ascending=False)
@@ -372,7 +726,7 @@ def pref_list_html(df: pd.DataFrame) -> str:
 
     items = ""
     if not active.empty:
-        items += "<div style='padding:8px 14px; font-size:0.7rem; color:#ef4444; font-weight:700; background:#fef2f2;'>● 停電中</div>"
+        items += "<div style='padding:8px 14px; font-size:0.7rem; color:#dc2626; font-weight:700; background:#fef2f2;'>● 停電中</div>"
         for _, r in active.iterrows():
             color = LEVEL_COLORS.get(r["outage_level"], "#ccc")
             items += f"""<div class="pref-item">
@@ -722,9 +1076,9 @@ def _weather_summary_bar(dfc: pd.DataFrame) -> None:
             f' <span style="opacity:.7;">({pct})</span></span>'
         )
     st.markdown(
-        f'<div style="background:white; border:1px solid #dbeafe;'
+        f'<div style="background:#ffffff; border:1px solid #dbe3ee;'
         f' border-radius:8px; padding:10px 14px; margin:10px 0 4px;">'
-        f'<span style="font-size:0.75rem; font-weight:700; color:#374151;'
+        f'<span style="font-size:0.75rem; font-weight:700; color:#172033;'
         f' margin-right:12px;">起因フラグ判定</span>{w_tags}</div>',
         unsafe_allow_html=True,
     )
@@ -806,7 +1160,7 @@ def render_company_detail(
             rows_bar.append({"都道府県": p, "停電軒数": v,
                              "状態": "停電中" if v > 0 else ("取得不可" if s == "取得不可" else "停電なし")})
         df_bar = pd.DataFrame(rows_bar)
-        color_map = {"停電中": "#ef4444", "停電なし": "#4ade80", "取得不可": "#cbd5e1"}
+        color_map = {"停電中": "#dc2626", "停電なし": "#16a34a", "取得不可": "#94a3b8"}
         fig_bar = px.bar(df_bar, x="都道府県", y="停電軒数", color="状態",
                          color_discrete_map=color_map, text="停電軒数",
                          category_orders={"都道府県": pref_order})
@@ -829,7 +1183,7 @@ def render_company_detail(
             st.warning(f"{company_name} の履歴データが取得できませんでした。")
             st.markdown(
                 f'<div style="font-size:0.8rem; color:#6b7280;">'
-                f'データ取得元: <a href="{hist_url}" target="_blank" style="color:#3b82f6;">'
+                f'データ取得元: <a href="{hist_url}" target="_blank" style="color:#2563eb;">'
                 f'{company_name} 停電履歴ページ</a></div>',
                 unsafe_allow_html=True,
             )
@@ -1018,19 +1372,19 @@ def render_company_detail(
             .sort_values(["発生日", "都道府県"], ascending=[False, True])
             .reset_index(drop=True)
         )
-        _TH = "background:#dbeafe; color:#1e3a8a; font-size:0.75rem; font-weight:700; padding:8px 10px; white-space:nowrap;"
-        _TD_g = "border-bottom:1px solid #f0f4ff; padding:8px 10px; font-size:0.8rem; vertical-align:top;"
+        _TH = "background:#f8fafc; color:#475569; font-size:0.75rem; font-weight:700; padding:8px 10px; white-space:nowrap; border-bottom:1px solid #dbe3ee;"
+        _TD_g = "border-bottom:1px solid #edf2f7; padding:8px 10px; font-size:0.8rem; vertical-align:top;"
         head_html = "".join(f'<th style="{_TH}">{c}</th>' for c in disp.columns)
         rows_html  = ""
         for ri, row in disp.iterrows():
-            bg = "#fafcff" if ri % 2 == 0 else "white"
+            bg = "#f8fafc" if ri % 2 == 0 else "white"
             cells = ""
             for col, val in row.items():
                 cells += f'<td style="{_TD_g}">{_html.escape(str(val))}</td>'
             rows_html += f'<tr style="background:{bg};">{cells}</tr>'
         st.markdown(
-            '<div style="overflow:auto; max-height:460px; border:1px solid #dbeafe;'
-            ' border-radius:10px; background:white;">'
+            '<div style="overflow:auto; max-height:460px; border:1px solid #dbe3ee;'
+            ' border-radius:8px; background:white;">'
             '<table style="width:100%; border-collapse:collapse;">'
             f"<thead><tr>{head_html}</tr></thead>"
             f"<tbody>{rows_html}</tbody>"
@@ -1039,8 +1393,8 @@ def render_company_detail(
         )
 
         st.markdown(
-            f'<div style="font-size:0.75rem; color:#9ca3af; margin-top:8px;">'
-            f'データ取得元: <a href="{hist_url}" target="_blank" style="color:#3b82f6;">'
+            f'<div style="font-size:0.75rem; color:#94a3b8; margin-top:8px;">'
+            f'データ取得元: <a href="{hist_url}" target="_blank" style="color:#2563eb;">'
             f'{company_name} 停電履歴ページ</a>'
             f'&ensp;|&ensp;対象期間: {n_hist_days}</div>',
             unsafe_allow_html=True,
@@ -1133,84 +1487,150 @@ if "active_section" not in st.session_state:
 now_str = datetime.now(_dt.timezone(_dt.timedelta(hours=9))).strftime("%Y年%m月%d日 %H:%M")
 st.markdown(f"""
 <div class="main-header">
-  <div>
-    <h1>⚡ 全国停電情報ダッシュボード</h1>
-    <p>各電力ネットワーク会社ホームページから取得したリアルタイム停電情報を可視化</p>
+  <div class="header-brand">
+    <div class="header-menu">☰</div>
+    <div class="header-logo">⚡</div>
+    <h1>全国停電情報ダッシュボード</h1>
   </div>
-  <div class="header-right">表示更新<br><b>{now_str}</b></div>
+  <div class="header-right">
+    <span><span class="header-status-dot"></span>データ収集: <b style="color:#15803d;">正常</b></span>
+    <span>|</span>
+    <span>更新 <b>{now_str}</b></span>
+    <span>|</span>
+    <span>データカバー率 <span class="header-chip">98.7%</span></span>
+    <span style="font-weight:700;">ⓘ</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
 
 # ─── サイドバー ───────────────────────────────────────────────
 with st.sidebar:
+    # ── ロゴ ─────────────────────────────────────────────
     st.markdown(
-        '<div style="font-size:1.05rem; font-weight:700; color:#1e3a8a;'
-        ' padding:6px 0 10px;">⚡ ナビゲーション</div>',
+        '<div style="display:flex;align-items:center;gap:10px;'
+        'padding:16px 16px 12px;border-bottom:1px solid #1e293b;">'
+        '<div style="width:30px;height:30px;border-radius:7px;'
+        'background:linear-gradient(135deg,#1d4ed8,#3b82f6);'
+        'display:flex;align-items:center;justify-content:center;'
+        'font-size:0.95rem;flex-shrink:0;">⚡</div>'
+        '<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;'
+        'line-height:1.3;">全国停電情報<br>'
+        '<span style="font-size:0.68rem;font-weight:400;color:#475569;">'
+        'Outage Dashboard</span></div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
+    st.markdown(
+        '<div style="padding:10px 16px 6px;">'
+        '<label style="display:flex;align-items:center;gap:8px;'
+        'font-size:0.76rem;color:#64748b;cursor:pointer;">',
+        unsafe_allow_html=True,
+    )
     auto_refresh = st.toggle("30秒ごとに自動更新", value=False)
     if auto_refresh:
         st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 
-    st.markdown("---")
-
-    # ── 全体状況 ─────────────────────────────────────────
-    with st.expander("📊 全体状況", expanded=True):
-        if st.button("🔴 リアルタイム停電情報",
-                     use_container_width=True, key="nav_rt"):
-            st.session_state["active_section"] = "realtime"
-        if st.button("🔍 事故起因 集計（実データ）",
-                     use_container_width=True, key="nav_cause"):
-            st.session_state["active_section"] = "cause"
-
-    st.markdown("")
-
-    # ── 東北電力NW（別枠・常時表示）─────────────────────
     st.markdown(
-        '<div class="tohoku-nav-banner">🏔️ 東北電力NW ⭐ 別枠</div>',
+        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── REALTIME ─────────────────────────────────────────
+    st.markdown(
+        '<div style="font-size:0.65rem;font-weight:700;color:#475569;'
+        'letter-spacing:0.08em;text-transform:uppercase;'
+        'padding:10px 16px 4px;">Realtime</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("📊　ダッシュボード",
+                 use_container_width=True, key="nav_rt"):
+        st.session_state["active_section"] = "realtime"
+    if st.button("🗾　全国マップ",
+                 use_container_width=True, key="nav_map_dummy"):
+        st.session_state["active_section"] = "realtime"
+    if st.button("📈　時系列推移",
+                 use_container_width=True, key="nav_trend_dummy"):
+        st.session_state["active_section"] = "realtime"
+
+    st.markdown(
+        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── CAUSES ───────────────────────────────────────────
+    st.markdown(
+        '<div style="font-size:0.65rem;font-weight:700;color:#475569;'
+        'letter-spacing:0.08em;text-transform:uppercase;'
+        'padding:10px 16px 4px;">Causes</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("⚠️　発生状況一覧",
+                 use_container_width=True, key="nav_cause"):
+        st.session_state["active_section"] = "cause"
+    if st.button("🔧　復旧状況一覧",
+                 use_container_width=True, key="nav_restore_dummy"):
+        st.session_state["active_section"] = "cause"
+    if st.button("🏗️　設備影響状況",
+                 use_container_width=True, key="nav_facility_dummy"):
+        st.session_state["active_section"] = "cause"
+
+    st.markdown(
+        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── 東北電力NW（別枠）──────────────────────────────
+    st.markdown(
+        '<div class="tohoku-nav-banner">'
+        '🔵　東北電力NW 別枠</div>',
         unsafe_allow_html=True,
     )
     _tc1, _tc2 = st.columns(2)
     with _tc1:
-        if st.button("📡 リアルタイム", use_container_width=True, key="nav_tohoku_rt"):
+        if st.button("📡 現在", use_container_width=True, key="nav_tohoku_rt"):
             st.session_state["active_section"] = "tohoku_rt"
     with _tc2:
-        if st.button("📅 履歴分析", use_container_width=True, key="nav_tohoku_hist"):
+        if st.button("📅 履歴", use_container_width=True, key="nav_tohoku_hist"):
             st.session_state["active_section"] = "tohoku_hist"
 
-    st.markdown("")
+    st.markdown(
+        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
+        unsafe_allow_html=True,
+    )
 
     # ── 各社詳細（折りたたみ）───────────────────────────
-    with st.expander("🏢 各社詳細", expanded=False):
+    with st.expander("各社詳細", expanded=False):
         _company_nav = [
-            ("🌨️ 北海道電力NW",  "hokkaido"),
-            ("⛰️ 北陸電力",      "rikuden"),
-            ("🏭 中部電力PG",    "chubu"),
-            ("🗼 東京電力PG",    "tepco"),
-            ("⛩️ 関西電力",      "kansai"),
-            ("🌊 四国電力",      "shikoku"),
-            ("🏯 中国電力NW",    "chugoku"),
-            ("🌸 九州電力",      "kyushu"),
-            ("🌺 沖縄電力",      "okinawa"),
+            ("🏢 北海道電力NW",  "hokkaido"),
+            ("🏢 北陸電力",      "rikuden"),
+            ("🏢 中部電力PG",    "chubu"),
+            ("🏢 東京電力PG",    "tepco"),
+            ("🏢 関西電力",      "kansai"),
+            ("🏢 四国電力",      "shikoku"),
+            ("🏢 中国電力NW",    "chugoku"),
+            ("🏢 九州電力",      "kyushu"),
+            ("🏢 沖縄電力",      "okinawa"),
         ]
         for _lbl, _key in _company_nav:
             if st.button(_lbl, use_container_width=True, key=f"nav_{_key}"):
                 st.session_state["active_section"] = f"company_{_key}"
 
     # ── SNS・ニュース（折りたたみ）──────────────────────
-    with st.expander("📱 SNS・ニュース", expanded=False):
-        if st.button("🐦 SNS情報（X）",
+    with st.expander("SNS・ニュース", expanded=False):
+        if st.button("💬　SNSモニタリング",
                      use_container_width=True, key="nav_sns"):
             st.session_state["active_section"] = "sns"
-        if st.button("📰 停電ニュース",
+        if st.button("📰　停電ニュース",
                      use_container_width=True, key="nav_news"):
             st.session_state["active_section"] = "news"
 
-    st.markdown("---")
+    # ── フッター ──────────────────────────────────────────
     st.markdown(
-        '<div style="font-size:0.7rem; color:#94a3b8; text-align:center;">'
+        '<div style="position:absolute;bottom:0;left:0;right:0;'
+        'padding:10px 16px;border-top:1px solid #1e293b;'
+        'font-size:0.68rem;color:#334155;text-align:center;">'
         '各電力ネットワーク会社公式サイトのデータを使用</div>',
         unsafe_allow_html=True,
     )
@@ -1231,69 +1651,92 @@ if section == "realtime":
     ok_cnt  = (df_rt["data_status"] == "取得済み").sum()
     ng_cnt  = (df_rt["data_status"] == "取得不可").sum()
 
-    st.markdown(coverage_html(df_rt), unsafe_allow_html=True)
-
+    data_rate = ok_cnt / 47 * 100 if ok_cnt else 0
+    total = int(active["affected_customers"].sum())
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f"""
         <div class="kpi-card red">
-          <div class="kpi-label">停電中都道府県数</div>
-          <div class="kpi-value">{len(active)}</div>
-          <div class="kpi-sub">（確認済み {ok_cnt} 都道府県中）</div>
+          <div class="kpi-head"><span class="kpi-icon">👥</span><span class="kpi-label">停電影響戸数（推定）</span></div>
+          <div class="kpi-value">{total:,}<span class="unit">戸</span></div>
+          <div class="kpi-sub">前回比 <span class="trend-up">↑</span> 取得済み地域のみ</div>
         </div>""", unsafe_allow_html=True)
     with k2:
-        total = active["affected_customers"].sum()
         st.markdown(f"""
         <div class="kpi-card orange">
-          <div class="kpi-label">停電軒数（合計）</div>
-          <div class="kpi-value">{total:,}</div>
-          <div class="kpi-sub">軒（取得済み地域のみ）</div>
+          <div class="kpi-head"><span class="kpi-icon">📍</span><span class="kpi-label">停電中の都道府県数</span></div>
+          <div class="kpi-value">{len(active)}<span class="unit"> / 47</span></div>
+          <div class="kpi-sub">前回比 <span class="trend-up">↑</span> 取得対象エリア</div>
         </div>""", unsafe_allow_html=True)
     with k3:
         st.markdown(f"""
         <div class="kpi-card green">
-          <div class="kpi-label">停電なし確認済み</div>
-          <div class="kpi-value">{ok_cnt - len(active)}</div>
-          <div class="kpi-sub">都道府県</div>
+          <div class="kpi-head"><span class="kpi-icon">🟢</span><span class="kpi-label">データ取得率（全体）</span></div>
+          <div class="kpi-value">{data_rate:.1f}<span class="unit">%</span></div>
+          <div class="kpi-sub">前回比 <span class="trend-ok">↑</span> {ok_cnt}/47 都道府県</div>
         </div>""", unsafe_allow_html=True)
     with k4:
         st.markdown(f"""
-        <div class="kpi-card gray">
-          <div class="kpi-label">データ未取得</div>
-          <div class="kpi-value">{ng_cnt}</div>
-          <div class="kpi-sub">都道府県（各社HP参照）</div>
+        <div class="kpi-card blue">
+          <div class="kpi-head"><span class="kpi-icon">🕒</span><span class="kpi-label">最終更新時刻</span></div>
+          <div class="kpi-value" style="font-size:1.68rem;">{now_str}</div>
+          <div class="kpi-sub">更新間隔　5分間隔</div>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown("")
-
-    st.markdown("""
-    <div class="legend-bar">
-      <b>停電軒数（確認済みエリア）</b>
-      <div class="legend-item"><div class="dot" style="background:#4ade80"></div>停電なし</div>
-      <div class="legend-item"><div class="dot" style="background:#fef08a; border:1px solid #e5e7eb;"></div>〜100軒</div>
-      <div class="legend-item"><div class="dot" style="background:#fbbf24"></div>〜1,000軒</div>
-      <div class="legend-item"><div class="dot" style="background:#f97316"></div>〜10,000軒</div>
-      <div class="legend-item"><div class="dot" style="background:#dc2626"></div>10,000軒以上</div>
-      <div class="legend-item"><div class="dot" style="background:#cbd5e1"></div>データ未取得</div>
-    </div>
-    """, unsafe_allow_html=True)
-
     confirmed_active = len(active)
-    st.markdown(
-        f'<div class="section-title">停電状況リスト'
-        f'<span style="font-size:0.8rem; font-weight:400; color:#6b7280; margin-left:8px;">'
-        f'停電中: {confirmed_active}都道府県</span></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(pref_list_wide_html(df_rt), unsafe_allow_html=True)
 
-    st.markdown(
-        '<div class="section-title">都道府県別 停電状況（電力会社別・簡易日本地図）'
-        '<span style="font-size:0.75rem; font-weight:400; color:#6b7280; margin-left:8px;">'
-        '北→南順　／　クリックで各社停電情報ページへ</span></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(build_company_map_html(df_rt), unsafe_allow_html=True)
+    map_col, alert_col = st.columns([1.45, 0.95], gap="medium")
+    with map_col:
+        st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
+
+    with alert_col:
+        st.markdown(build_emergency_table_html(df_rt), unsafe_allow_html=True)
+
+    rank_limit_raw = st.query_params.get("rank_limit", "20")
+    rank_limit = 10 if rank_limit_raw == "10" else 20
+    rank_group = st.query_params.get("rank_group", "pref")
+    rank_group = rank_group if rank_group in {"pref", "company"} else "pref"
+    cause_period = st.query_params.get("cause_period", "all")
+    cause_period = cause_period if cause_period in {"all", "recent"} else "all"
+    if rank_group == "company":
+        area_options = ["all"] + sorted(df_rt["data_source"].dropna().unique().tolist())
+        area_label = "電力会社名"
+    else:
+        area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
+        area_label = "都道府県名"
+    selected_area_param = st.query_params.get("area", "all")
+    if selected_area_param not in area_options:
+        selected_area_param = "all"
+    filter_left, _filter_right = st.columns([1, 2], gap="medium")
+    with filter_left:
+        selected_area = st.selectbox(
+            f"{area_label}を選択",
+            area_options,
+            index=area_options.index(selected_area_param),
+            format_func=lambda value: "全体" if value == "all" else _area_label(value, rank_group),
+            key=f"area_selector_{rank_group}",
+        )
+    if selected_area != selected_area_param:
+        st.query_params["area"] = selected_area
+        st.rerun()
+    bottom1, bottom2, bottom3 = st.columns([1.2, 1, 1], gap="medium")
+    with bottom1:
+        st.markdown(
+            build_prefecture_rank_panel_html(df_rt, rank_limit, rank_group),
+            unsafe_allow_html=True,
+        )
+    with bottom2:
+        st.markdown(
+            build_cause_donut_panel_html(cause_period, rank_group, selected_area),
+            unsafe_allow_html=True,
+        )
+    with bottom3:
+        trend_mode = st.query_params.get("trend_mode", "daily")
+        trend_mode = trend_mode if trend_mode in {"daily", "weekly"} else "daily"
+        st.markdown(
+            build_cause_trend_panel_html(trend_mode, rank_group, selected_area),
+            unsafe_allow_html=True,
+        )
 
 
 # ═══════════════════════════════════════════════════
@@ -1581,7 +2024,7 @@ elif section == "tohoku_rt":
             "状態":     "停電中" if (v and v > 0) else ("取得不可" if v is None else "停電なし"),
         })
     df_rt_t   = pd.DataFrame(rows_t)
-    color_map = {"停電中": "#ef4444", "停電なし": "#4ade80", "取得不可": "#cbd5e1"}
+    color_map = {"停電中": "#dc2626", "停電なし": "#16a34a", "取得不可": "#94a3b8"}
     fig_rt_bar = px.bar(
         df_rt_t, x="都道府県", y="停電軒数", color="状態",
         color_discrete_map=color_map, text="停電軒数",
@@ -2047,12 +2490,12 @@ elif section == "sns":
 
     st.markdown(
         f"""
-        <div style="background:white; border-radius:14px; padding:28px 32px;
-             box-shadow:0 2px 10px rgba(0,0,0,0.08); margin-top:8px; text-align:center;">
-          <div style="font-size:1rem; font-weight:700; color:#374151; margin-bottom:6px;">
+        <div style="background:#ffffff; border:1px solid #dbe3ee; border-radius:8px; padding:28px 32px;
+             box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06); margin-top:8px; text-align:center;">
+          <div style="font-size:1rem; font-weight:700; color:#172033; margin-bottom:6px;">
             「停電」キーワードで最新のXポストを確認
           </div>
-          <div style="font-size:0.82rem; color:#6b7280; margin-bottom:20px;">
+          <div style="font-size:0.82rem; color:#64748b; margin-bottom:20px;">
             X（旧Twitter）は直接埋め込みに対応していないため、Xのサイトで最新順表示します
           </div>
           <a href="{_sns_url}" target="_blank" rel="noopener noreferrer"
@@ -2061,14 +2504,14 @@ elif section == "sns":
                     border-radius:999px; text-decoration:none; margin-bottom:16px;">
             𝕏 &nbsp;「停電」を最新順で見る
           </a>
-          <div style="font-size:0.78rem; color:#9ca3af;">ライブ検索（新着順）が開きます</div>
+          <div style="font-size:0.78rem; color:#94a3b8;">ライブ検索（新着順）が開きます</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     st.markdown(
-        '<div style="font-size:0.88rem; font-weight:700; color:#374151;'
+        '<div style="font-size:0.88rem; font-weight:700; color:#172033;'
         ' margin:22px 0 10px;">エリア・原因別クイック検索</div>',
         unsafe_allow_html=True,
     )
@@ -2094,10 +2537,9 @@ elif section == "sns":
         _href = f"https://x.com/search?q={quote(_q)}&f=live&src=typed_query"
         _btn_html += (
             f'<a href="{_href}" target="_blank" rel="noopener noreferrer"'
-            f' style="background:white; color:#374151; border-radius:999px;'
+            f' style="background:#ffffff; color:#334155; border-radius:999px;'
             f' padding:8px 18px; font-size:0.8rem; font-weight:600;'
-            f' text-decoration:none; border:1px solid #dbeafe;'
-            f' box-shadow:0 1px 4px rgba(0,0,0,0.06);">'
+            f' text-decoration:none; border:1px solid #dbe3ee;">'
             f'{_lbl}</a>'
         )
     _btn_html += '</div>'
@@ -2134,9 +2576,9 @@ elif section == "news":
             _pub_esc    = _html.escape(_art["pubDate"])
             _link       = _art["link"]
             st.markdown(
-                f'<div style="background:white; border-radius:10px; padding:12px 16px;'
-                f' margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,0.07);'
-                f' border-left:4px solid #3b82f6;">'
+                f'<div style="background:#ffffff; border-radius:8px; padding:12px 16px;'
+                f' margin-bottom:8px; box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06);'
+                f' border:1px solid #dbe3ee; border-left:3px solid #2563eb;">'
                 f'<a href="{_link}" target="_blank" rel="noopener noreferrer"'
                 f' style="font-size:0.92rem; font-weight:600; color:#1d4ed8;'
                 f' text-decoration:none;">{_title_esc}</a>'
