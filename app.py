@@ -1625,14 +1625,18 @@ with st.sidebar:
             if st.button(_lbl, use_container_width=True, key=f"nav_{_key}"):
                 st.session_state["active_section"] = f"company_{_key}"
 
-    # ── SNS・ニュース（折りたたみ）──────────────────────
-    with st.expander("SNS・ニュース", expanded=False):
-        if st.button("💬　SNSモニタリング",
-                     use_container_width=True, key="nav_sns"):
-            st.session_state["active_section"] = "sns"
-        if st.button("📰　停電ニュース",
-                     use_container_width=True, key="nav_news"):
-            st.session_state["active_section"] = "news"
+    # ── SNS・ニュース ─────────────────────────────────────
+    st.markdown(
+        '<div style="margin:12px 0 4px;padding:0 4px;'
+        'font-size:0.62rem;font-weight:700;letter-spacing:.08em;color:#475569;">SNS / NEWS</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("💬　SNSモニタリング",
+                 use_container_width=True, key="nav_sns"):
+        st.session_state["active_section"] = "sns"
+    if st.button("📰　停電ニュース",
+                 use_container_width=True, key="nav_news"):
+        st.session_state["active_section"] = "news"
 
     # ── フッター ──────────────────────────────────────────
     st.markdown(
