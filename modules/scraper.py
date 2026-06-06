@@ -518,7 +518,9 @@ def fetch_chubu() -> tuple[dict[str, int], str]:
             idx_soup = BeautifulSoup(idx_r.text, "xml")
             areas = idx_soup.find_all("area")
             if not areas:
-                raise ValueError(f"XMLにareaタグなし body={idx_r.text[:200]!r}")
+                # teiden_info ルート要素があれば停電ゼロの正常レスポンス
+                if idx_soup.find("teiden_info") is None:
+                    raise ValueError(f"XMLにareaタグなし body={idx_r.text[:200]!r}")
             for area in areas:
                 addr_node = area.find("address")
                 kosu_node = area.find("genzai_teiden_kosu")

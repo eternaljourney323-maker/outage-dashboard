@@ -63,7 +63,9 @@ def fetch():
         soup = BeautifulSoup(r.text, "xml")
         areas = soup.find_all("area")
         if not areas:
-            raise ValueError(f"No area tags. body={r.text[:300]!r}")
+            # teiden_info root exists but empty = zero outages (valid response)
+            if soup.find("teiden_info") is None:
+                raise ValueError(f"No area tags and no teiden_info root. body={r.text[:300]!r}")
         for area in areas:
             addr = area.find("address")
             kosu = area.find("genzai_teiden_kosu")
