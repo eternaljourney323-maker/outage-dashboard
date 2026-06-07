@@ -1581,14 +1581,8 @@ with st.sidebar:
         'padding:10px 16px 4px;">Causes</div>',
         unsafe_allow_html=True,
     )
-    if st.button("⚠️　発生状況一覧",
+    if st.button("⚠️　停電起因・状況一覧",
                  use_container_width=True, key="nav_cause"):
-        st.session_state["active_section"] = "cause"
-    if st.button("🔧　復旧状況一覧",
-                 use_container_width=True, key="nav_restore_dummy"):
-        st.session_state["active_section"] = "cause"
-    if st.button("🏗️　設備影響状況",
-                 use_container_width=True, key="nav_facility_dummy"):
         st.session_state["active_section"] = "cause"
 
     st.markdown(
