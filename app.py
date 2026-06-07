@@ -1574,6 +1574,16 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # ── HOME ─────────────────────────────────────────────
+    if st.button("🏠　リアルタイム停電情報",
+                 use_container_width=True, key="nav_realtime"):
+        st.session_state["active_section"] = "realtime"
+
+    st.markdown(
+        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
     # ── CAUSES ───────────────────────────────────────────
     st.markdown(
         '<div style="font-size:0.65rem;font-weight:700;color:#475569;'
