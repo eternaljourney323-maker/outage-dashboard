@@ -15,14 +15,14 @@
   --border-soft:   #f1f5f9;
 
   /* サイドバー */
-  --sidebar-bg:          #0f172a;
-  --sidebar-text:        #94a3b8;
-  --sidebar-text-hover:  #cbd5e1;
-  --sidebar-active-text: #f8fafc;
-  --sidebar-active-bg:   #1e293b;
-  --sidebar-border:      #1e293b;
-  --sidebar-section:     #475569;
-  --sidebar-accent:      #3b82f6;
+  --sidebar-bg:          #f1f5f9;
+  --sidebar-text:        #475569;
+  --sidebar-text-hover:  #1e293b;
+  --sidebar-active-text: #1e40af;
+  --sidebar-active-bg:   #dbeafe;
+  --sidebar-border:      #cbd5e1;
+  --sidebar-section:     #94a3b8;
+  --sidebar-accent:      #2563eb;
 
   /* テキスト */
   --text:          #0f172a;
