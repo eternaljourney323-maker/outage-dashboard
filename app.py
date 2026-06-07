@@ -402,8 +402,7 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
             )
     return (
         '<div class="panel-card emergency-panel">'
-        '<div class="panel-title-row"><div class="panel-title">緊急度の高い停電（上位10件）</div>'
-        '<a style="font-size:.78rem; font-weight:700; color:#2563eb; text-decoration:none;">一覧へ</a></div>'
+        '<div class="panel-title-row"><div class="panel-title">緊急度の高い停電（上位10件）</div></div>'
         '<table class="emergency-table">'
         '<thead><tr><th>緊急度</th><th>エリア</th><th>停電戸数</th><th>状況</th></tr></thead>'
         f'<tbody>{body}</tbody></table>'
