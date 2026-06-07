@@ -480,7 +480,7 @@ section[data-testid="stSidebar"] .stButton > button:active {
 
 .emergency-table td {
   padding: 9px 10px; border-bottom: 1px solid var(--border-soft);
-  color: var(--text-secondary); vertical-align: middle;
+  color: var(--text-secondary); vertical-align: middle; white-space: nowrap;
 }
 
 .emergency-table tr:hover td { background: var(--surface-muted); }

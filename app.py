@@ -391,7 +391,8 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
                 sev, sev_bg = "中", "#fbbf24"
             else:
                 sev, sev_bg = "低", "#cbd5e1"
-            ts = str(r.get("fetched_at", ""))[:16].replace("T", " ") or "—"
+            _fat = str(r.get("fetched_at", ""))
+            ts = _fat[11:16] if len(_fat) >= 16 else (_fat[:16].replace("T", " ") if _fat else "—")
             status = '<span class="status-pill danger">停電中</span>' if count > 0 else '<span class="status-pill normal">確認済</span>'
             body += (
                 '<tr>'
