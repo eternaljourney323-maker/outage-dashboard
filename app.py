@@ -259,16 +259,16 @@ _PREF_TILE_POS = {
 }
 
 _MAP_COMPANY_STYLES = {
-    "北海道電力ネットワーク": ("#bfdbfe", "#60a5fa", "#1e3a8a", "北海道電力"),
-    "東北電力ネットワーク":   ("#bfeee6", "#5cc7bd", "#164e63", "東北電力"),
-    "東京電力パワーグリッド": ("#dceec4", "#a3c66e", "#365314", "東京電力パワーグリッド"),
-    "中部電力パワーグリッド": ("#fee2a8", "#f6c35f", "#78350f", "中部電力パワーグリッド"),
-    "北陸電力送配電":         ("#dbeafe", "#93c5fd", "#3730a3", "北陸電力送配電"),
-    "関西電力送配電":         ("#fed792", "#f2b443", "#78350f", "関西電力送配電"),
-    "中国電力ネットワーク":   ("#fecaca", "#f87171", "#991b1b", "中国電力ネットワーク"),
-    "四国電力送配電":         ("#eadcf8", "#b794d6", "#581c87", "四国電力送配電"),
-    "九州電力送配電":         ("#fecaca", "#fb7185", "#991b1b", "九州電力送配電"),
-    "沖縄電力":               ("#bfdbfe", "#60a5fa", "#075985", "沖縄電力"),
+    "北海道電力ネットワーク": ("#bfdbfe", "#3b82f6", "#1e3a8a", "北海道電力"),      # 青
+    "東北電力ネットワーク":   ("#99f6e4", "#0d9488", "#134e4a", "東北電力"),          # ティール
+    "東京電力パワーグリッド": ("#bbf7d0", "#16a34a", "#14532d", "東京電力パワーグリッド"),  # 緑
+    "中部電力パワーグリッド": ("#fed7aa", "#ea580c", "#7c2d12", "中部電力パワーグリッド"),  # 橙
+    "北陸電力送配電":         ("#c7d2fe", "#4f46e5", "#312e81", "北陸電力送配電"),    # インディゴ
+    "関西電力送配電":         ("#fef08a", "#ca8a04", "#713f12", "関西電力送配電"),    # 黄
+    "中国電力ネットワーク":   ("#fbcfe8", "#db2777", "#831843", "中国電力ネットワーク"),  # ピンク
+    "四国電力送配電":         ("#e9d5ff", "#9333ea", "#581c87", "四国電力送配電"),    # 紫
+    "九州電力送配電":         ("#fca5a5", "#dc2626", "#7f1d1d", "九州電力送配電"),    # 赤
+    "沖縄電力":               ("#a5f3fc", "#0891b2", "#164e63", "沖縄電力"),          # シアン
 }
 
 _MAP_COMPANY_ORDER = [
@@ -292,7 +292,7 @@ _PREF_TO_MAP_COMPANY = {
 _PREF_TO_MAP_COMPANY["静岡県"] = "中部電力パワーグリッド"
 
 _PREF_TILE_SPAN = {
-    "北海道": (2, 2),
+    "北海道": (2, 1),
     "青森県": (2, 1),
     "福島県": (2, 1),
     "神奈川県": (1, 2),
@@ -335,13 +335,15 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
             if count else ""
         )
         pref_label = pref[:-1] if pref.endswith(("県", "府", "都")) else pref
+        url = _COMPANY_URLS.get(company, "#")
         tiles += (
-            f'<div class="map-tile" title="{pref} {count:,}軒"'
+            f'<a class="map-tile" href="{url}" target="_blank" rel="noopener noreferrer"'
+            f' title="{pref} {count:,}軒 — {company}サイトへ"'
             f' style="grid-column:{col} / span {span_c}; grid-row:{row} / span {span_r};'
-            f' background:{bg}; color:{txt}; border-color:{border};">'
+            f' background:{bg}; color:{txt}; border-color:{border}; text-decoration:none;">'
             f'<span class="map-tile-label" style="color:{txt};">{pref_label}</span>'
             f'{count_label}'
-            f'</div>'
+            f'</a>'
         )
 
     return (
@@ -361,7 +363,7 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
         '<div class="map-tile-viewport">'
         f'<div class="map-tile-grid">{tiles}</div>'
         '</div></div>'
-        '<div class="map-footnote">※地図は電力会社エリアに基づく簡易表示です</div>'
+        '<div class="map-footnote">※地図は電力会社エリアに基づく簡易表示です。クリックで各社停電情報ページへ</div>'
         '</div>'
     )
 
