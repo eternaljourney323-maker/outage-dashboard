@@ -1674,35 +1674,27 @@ if section == "realtime":
 
     data_rate = ok_cnt / 47 * 100 if ok_cnt else 0
     total = int(active["affected_customers"].sum())
-    k1, k2, k3, k4 = st.columns(4)
+    k1, k2 = st.columns(2)
     with k1:
         st.markdown(f"""
         <div class="kpi-card red">
           <div class="kpi-head"><span class="kpi-icon">👥</span><span class="kpi-label">停電影響戸数（推定）</span></div>
           <div class="kpi-value">{total:,}<span class="unit">戸</span></div>
-          <div class="kpi-sub">前回比 <span class="trend-up">↑</span> 取得済み地域のみ</div>
+          <div class="kpi-sub">取得済み地域のみ</div>
         </div>""", unsafe_allow_html=True)
     with k2:
         st.markdown(f"""
         <div class="kpi-card orange">
           <div class="kpi-head"><span class="kpi-icon">📍</span><span class="kpi-label">停電中の都道府県数</span></div>
           <div class="kpi-value">{len(active)}<span class="unit"> / 47</span></div>
-          <div class="kpi-sub">前回比 <span class="trend-up">↑</span> 取得対象エリア</div>
+          <div class="kpi-sub">取得対象エリア</div>
         </div>""", unsafe_allow_html=True)
-    with k3:
-        st.markdown(f"""
-        <div class="kpi-card green">
-          <div class="kpi-head"><span class="kpi-icon">🟢</span><span class="kpi-label">データ取得率（全体）</span></div>
-          <div class="kpi-value">{data_rate:.1f}<span class="unit">%</span></div>
-          <div class="kpi-sub">前回比 <span class="trend-ok">↑</span> {ok_cnt}/47 都道府県</div>
-        </div>""", unsafe_allow_html=True)
-    with k4:
-        st.markdown(f"""
-        <div class="kpi-card blue">
-          <div class="kpi-head"><span class="kpi-icon">🕒</span><span class="kpi-label">最終更新時刻</span></div>
-          <div class="kpi-value" style="font-size:1.68rem;">{now_str}</div>
-          <div class="kpi-sub">更新間隔　5分間隔</div>
-        </div>""", unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="font-size:0.78rem; color:#94a3b8; margin-bottom:0.5rem;">'
+        f'取得率 {ok_cnt}/47都道府県（{data_rate:.0f}%）　更新 {now_str}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     confirmed_active = len(active)
 
