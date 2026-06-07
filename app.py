@@ -1704,7 +1704,7 @@ if section == "realtime":
         st.markdown(build_emergency_table_html(df_rt), unsafe_allow_html=True)
 
     # ── ボトムパネル コントロール ──────────────────────────────
-    _bc1, _bc2, _bc3, _bc4, _bc5 = st.columns([1, 1.4, 0.9, 0.9, 0.9])
+    _bc1, _bc2, _bc3, _bc4 = st.columns([1, 1.4, 0.9, 0.9])
     with _bc1:
         rg_label = st.radio(
             "表示単位", ["都道府県別", "電力会社別"],
@@ -1721,32 +1721,19 @@ if section == "realtime":
         area_sel = st.selectbox("エリア絞り込み", area_display, key=f"area_ctrl_{rank_group}")
         selected_area = area_options[area_display.index(area_sel)]
     with _bc3:
-        rl_label = st.radio(
-            "件数", ["上位20件", "上位10件"],
-            horizontal=True, key="rl_ctrl",
-        )
-        rank_limit = 10 if rl_label == "上位10件" else 20
-    with _bc4:
         cp_label = st.radio(
             "期間", ["全期間", "直近7日"],
             horizontal=True, key="cp_ctrl",
         )
         cause_period = "recent" if cp_label == "直近7日" else "all"
-    with _bc5:
+    with _bc4:
         tm_label = st.radio(
             "トレンド", ["日次", "週次"],
             horizontal=True, key="tm_ctrl",
         )
         trend_mode = "weekly" if tm_label == "週次" else "daily"
 
-    bottom1, bottom2, bottom3 = st.columns([1.2, 1, 1], gap="medium")
-    with bottom1:
-        st.markdown(
-            build_prefecture_rank_panel_html(
-                df_rt, rank_limit, rank_group, area_options, selected_area,
-            ),
-            unsafe_allow_html=True,
-        )
+    bottom2, bottom3 = st.columns([1, 1], gap="medium")
     with bottom2:
         st.markdown(
             build_cause_donut_panel_html(
