@@ -1543,8 +1543,6 @@ st.markdown(f"""
     <span><span class="header-status-dot"></span>データ収集: <b style="color:#15803d;">正常</b></span>
     <span>|</span>
     <span>更新 <b>{now_str}</b></span>
-    <span>|</span>
-    <span>データカバー率 <span class="header-chip">98.7%</span></span>
     <span style="font-weight:700;">ⓘ</span>
   </div>
 </div>
