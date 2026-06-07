@@ -80,7 +80,9 @@ header[data-testid="stHeader"],
 [data-testid="stToolbar"] { background: transparent; }
 
 [data-testid="stStatusWidget"],
-[data-testid="stToolbarActions"] { display: none !important; }
+[data-testid="stToolbarActions"],
+[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"] { display: none !important; }
 
 /* ── サイドバー ─────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
