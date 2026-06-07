@@ -374,7 +374,7 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
     rows = df.sort_values(["affected_customers", "prefecture"], ascending=[False, True]).head(10)
     if rows.empty:
         body = (
-            '<tr><td colspan="5" style="padding:26px; text-align:center; color:#16a34a;'
+            '<tr><td colspan="4" style="padding:26px; text-align:center; color:#16a34a;'
             ' font-weight:700;">現在、緊急度の高い停電は確認されていません</td></tr>'
         )
     else:
@@ -391,13 +391,10 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
                 sev, sev_bg = "中", "#fbbf24"
             else:
                 sev, sev_bg = "低", "#cbd5e1"
-            _fat = str(r.get("fetched_at", ""))
-            ts = _fat[11:16] if len(_fat) >= 16 else (_fat[:16].replace("T", " ") if _fat else "—")
             status = '<span class="status-pill danger">停電中</span>' if count > 0 else '<span class="status-pill normal">確認済</span>'
             body += (
                 '<tr>'
                 f'<td><span class="severity-badge" style="background:{sev_bg};">{sev}</span></td>'
-                f'<td>{_html.escape(ts)}</td>'
                 f'<td>{_html.escape(str(r["prefecture"]))}</td>'
                 f'<td style="text-align:right; font-weight:700;">{count:,} 戸</td>'
                 f'<td>{status}</td>'
@@ -408,7 +405,7 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
         '<div class="panel-title-row"><div class="panel-title">緊急度の高い停電（上位10件）</div>'
         '<a style="font-size:.78rem; font-weight:700; color:#2563eb; text-decoration:none;">一覧へ</a></div>'
         '<table class="emergency-table">'
-        '<thead><tr><th>緊急度</th><th>取得時刻</th><th>エリア</th><th>停電戸数</th><th>状況</th></tr></thead>'
+        '<thead><tr><th>緊急度</th><th>エリア</th><th>停電戸数</th><th>状況</th></tr></thead>'
         f'<tbody>{body}</tbody></table>'
         '<div style="color:#64748b; font-size:.72rem; padding-top:8px;">※停電戸数は各社公式サイト取得値です</div>'
         '</div>'
