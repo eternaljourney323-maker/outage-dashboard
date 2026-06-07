@@ -1593,7 +1593,7 @@ with st.sidebar:
     # ── 東北電力NW（別枠）──────────────────────────────
     st.markdown(
         '<div class="tohoku-nav-banner">'
-        '🔵　東北電力NW 別枠</div>',
+        '🔵　東北電力NW</div>',
         unsafe_allow_html=True,
     )
     _tc1, _tc2 = st.columns(2)
