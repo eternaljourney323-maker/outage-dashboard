@@ -371,7 +371,7 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
 
 def build_emergency_table_html(df: pd.DataFrame) -> str:
     """緊急度の高い停電一覧テーブル"""
-    rows = df.sort_values(["affected_customers", "prefecture"], ascending=[False, True]).head(10)
+    rows = df[df["affected_customers"] > 0].sort_values("affected_customers", ascending=False).head(10)
     if rows.empty:
         body = (
             '<tr><td colspan="4" style="padding:26px; text-align:center; color:#16a34a;'
