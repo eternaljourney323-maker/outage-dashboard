@@ -79,6 +79,9 @@ html, body, [class*="css"] {
 header[data-testid="stHeader"],
 [data-testid="stToolbar"] { background: transparent; }
 
+[data-testid="stStatusWidget"],
+[data-testid="stToolbarActions"] { display: none !important; }
+
 /* ── サイドバー ─────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
   background: var(--sidebar-bg) !important;
