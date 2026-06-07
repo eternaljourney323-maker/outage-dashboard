@@ -336,8 +336,9 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
         )
         pref_label = pref[:-1] if pref.endswith(("県", "府", "都")) else pref
         url = _COMPANY_URLS.get(company, "#")
+        active_cls = " map-tile--active" if count > 0 else ""
         tiles += (
-            f'<a class="map-tile" href="{url}" target="_blank" rel="noopener noreferrer"'
+            f'<a class="map-tile{active_cls}" href="{url}" target="_blank" rel="noopener noreferrer"'
             f' title="{pref} {count:,}軒 — {company}サイトへ"'
             f' style="grid-column:{col} / span {span_c}; grid-row:{row} / span {span_r};'
             f' background:{bg}; color:{txt}; border-color:{border}; text-decoration:none;">'

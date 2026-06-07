@@ -401,6 +401,21 @@ section[data-testid="stSidebar"] .stButton > button:active {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28), 0 2px 8px rgba(15, 23, 42, 0.18);
 }
 
+@keyframes outage-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 2px currentColor; }
+  50%       { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 4px currentColor, 0 0 10px currentColor; }
+}
+
+.map-tile--active {
+  border-width: 2.5px;
+  filter: saturate(1.4) brightness(1.05);
+  animation: outage-pulse 1.8s ease-in-out infinite;
+}
+
+.map-tile--active:hover {
+  filter: saturate(1.4) brightness(0.9);
+}
+
 .map-tile-label {
   line-height: 1;
   white-space: nowrap;
