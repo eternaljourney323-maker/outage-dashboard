@@ -97,14 +97,16 @@ _TEPCO_BASE_URL     = "https://teideninfo.tepco.co.jp"
 _OKINAWA_PREF     = "沖縄県"
 _OKINAWA_BASE_URL = "https://www.okidenmail.jp"
 
-# 中部電力パワーグリッド
+# 中部電力パワーグリッド（Yahoo!天気・災害経由で取得）
 _CHUBU_PREFS    = ["愛知県", "三重県", "岐阜県", "静岡県", "長野県"]
-_CHUBU_BASE_URL = "https://teiden.powergrid.chuden.co.jp/p"
-# WAFブロック時のフォールバック: GitHub Actionsがdata-cacheブランチに書き込むキャッシュ
-_CHUBU_CACHE_URL = (
-    "https://raw.githubusercontent.com/"
-    "eternaljourney323-maker/outage-dashboard/data-cache/cache/chubu.json"
-)
+_YAHOO_POWEROUTAGE_URL = "https://typhoon.yahoo.co.jp/weather/poweroutage"
+_CHUBU_PREF_CODES: dict[str, str] = {
+    "20": "長野県",
+    "21": "岐阜県",
+    "22": "静岡県",
+    "23": "愛知県",
+    "24": "三重県",
+}
 
 # 北陸電力送配電
 _RIKUDEN_PREFS    = ["富山県", "石川県", "福井県"]
@@ -438,127 +440,88 @@ def fetch_tepco_history(max_days: int = 31) -> list[dict]:
 
 
 def fetch_chubu() -> tuple[dict[str, int], str]:
-    """中部電力パワーグリッドのリアルタイム停電情報を取得（愛知/三重/岐阜/静岡/長野）"""
-    top_url = f"{_CHUBU_BASE_URL}/index.html"
+    """中部電力パワーグリッド管内の停電情報をYahoo!天気・災害から取得（愛知/三重/岐阜/静岡/長野）"""
+    result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
+    ts = ""
+    current_year = datetime.now().year
 
-    # WAF回避: ブラウザの完全なセッションを模倣（sec-fetch-* ヘッダー付き）
-    _nav_hdrs = {
-        **_HEADERS,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"macOS"',
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "none",
-        "sec-fetch-user": "?1",
-    }
-    _xhr_hdrs = {
-        **_nav_hdrs,
-        "Accept": "application/xml, text/xml, */*; q=0.01",
-        "Referer": top_url,
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "X-Requested-With": "XMLHttpRequest",
-    }
-    for k in ("Upgrade-Insecure-Requests", "sec-fetch-user"):
-        _xhr_hdrs.pop(k, None)
-
-    logger.info("中部電力PG: curl_cffi=%s", _CURL_CFFI_AVAILABLE)
-
-    for attempt in range(2):
-        ts_ms     = int(time.time() * 1000)
-        index_url = f"{_CHUBU_BASE_URL}/resource/disclose/xml/index.xml?{ts_ms}"
-        area_url  = f"{_CHUBU_BASE_URL}/resource/xml/teiden_area.xml?{ts_ms}"
-        result: dict[str, int] = {p: 0 for p in _CHUBU_PREFS}
-        ts = ""
-
-        # curl_cffi が使えればChromeのTLSフィンガープリントで接続（クラウドIPのWAFブロック回避）
-        if _CURL_CFFI_AVAILABLE:
-            session = cffi_requests.Session(impersonate="chrome124")
-        else:
-            session = requests.Session()
-
-        # Step 1: トップページ訪問でセッション・Cookie確立
-        try:
-            top_r = session.get(top_url, headers=_nav_hdrs, timeout=15)
-            logger.info("中部電力PG top: status=%s ct=%s", top_r.status_code, top_r.headers.get("Content-Type", ""))
-        except Exception as exc:
-            logger.warning("中部電力PG top取得失敗: %s", exc)
-
-        # Step 2: タイムスタンプ取得
-        try:
-            area_r = session.get(area_url, headers=_xhr_hdrs, timeout=20)
-            area_r.encoding = "utf-8"
-            area_soup = BeautifulSoup(area_r.text, "xml")
-            dt_node = area_soup.find("data_make_d")
-            if dt_node and dt_node.text:
-                raw = dt_node.text.strip()
-                try:
-                    ts = datetime.strptime(raw, "%Y/%m/%d %H:%M").strftime("%Y年%m月%d日 %H:%M")
-                except Exception:
-                    ts = raw
-        except Exception:
-            pass
-
-        # Step 3: 停電件数 XML 取得（値は「約1340戸」形式なので正規表現で数字を抽出）
-        idx_r = None
-        try:
-            idx_r = session.get(index_url, headers=_xhr_hdrs, timeout=20)
-            idx_r.raise_for_status()
-            idx_r.encoding = "utf-8"
-            # WAFがHTMLエラーページを返した場合は XML として認識できない
-            content_type = idx_r.headers.get("Content-Type", "")
-            if "html" in content_type and "xml" not in content_type:
-                raise ValueError(f"WAFブロック疑い: Content-Type={content_type}, body={idx_r.text[:200]!r}")
-            idx_soup = BeautifulSoup(idx_r.text, "xml")
-            areas = idx_soup.find_all("area")
-            if not areas:
-                # teiden_info ルート要素があれば停電ゼロの正常レスポンス
-                if idx_soup.find("teiden_info") is None:
-                    raise ValueError(f"XMLにareaタグなし body={idx_r.text[:200]!r}")
-            for area in areas:
-                addr_node = area.find("address")
-                kosu_node = area.find("genzai_teiden_kosu")
-                if addr_node and kosu_node:
-                    pref = addr_node.text.strip()
-                    if pref in result:
-                        nums = re.findall(r"[\d,]+", kosu_node.text)
-                        if nums:
-                            try:
-                                result[pref] = int(nums[0].replace(",", ""))
-                            except ValueError:
-                                pass
-            return result, ts
-        except Exception as exc:
-            status = idx_r.status_code if idx_r is not None else "N/A"
-            logger.warning("中部電力PG取得失敗 (attempt %d/2) status=%s: %s: %s",
-                           attempt + 1, status, type(exc).__name__, exc)
-            if attempt == 0:
-                time.sleep(3)
-
-    # 直接取得失敗 → GitHub Actionsキャッシュへフォールバック
     try:
-        # CDNキャッシュバイパスのためタイムスタンプパラメータを付与
-        bust = int(time.time())
-        cache_r = requests.get(f"{_CHUBU_CACHE_URL}?_={bust}", timeout=10)
-        cache_r.raise_for_status()
-        data = cache_r.json()
-        result = {p: data["result"].get(p) for p in _CHUBU_PREFS}
-        fetched_at = data.get("fetched_at", "")
-        ts = data.get("ts", "")
-        if fetched_at:
-            ts = f"{ts}（キャッシュ）"
-        logger.warning("中部電力PG: キャッシュ使用 fetched_at=%s", fetched_at)
-        return result, ts
-    except Exception as exc:
-        logger.warning("中部電力PG キャッシュ取得失敗: %s", exc)
+        # Step 1: メインページから停電発生中の都道府県コードを取得
+        main_r = requests.get(
+            f"{_YAHOO_POWEROUTAGE_URL}/",
+            headers=_HEADERS,
+            timeout=12,
+        )
+        main_r.raise_for_status()
+        main_r.encoding = "utf-8"
+        main_soup = BeautifulSoup(main_r.text, "html.parser")
 
-    return {p: None for p in _CHUBU_PREFS}, ""
+        outage_codes: list[str] = []
+        for a in main_soup.select("a[href*='/weather/poweroutage/']"):
+            m = re.search(r"/weather/poweroutage/(\d+)/", a.get("href", ""))
+            if m and m.group(1) in _CHUBU_PREF_CODES:
+                outage_codes.append(m.group(1))
+
+        if not outage_codes:
+            ts = datetime.now().strftime("%Y年%m月%d日 %H:%M")
+            return result, ts
+
+        # Step 2: 各都道府県ページから停電軒数を合算
+        for code in outage_codes:
+            pref_name = _CHUBU_PREF_CODES[code]
+            try:
+                pref_r = requests.get(
+                    f"{_YAHOO_POWEROUTAGE_URL}/{code}/",
+                    headers={**_HEADERS, "Referer": f"{_YAHOO_POWEROUTAGE_URL}/"},
+                    timeout=12,
+                )
+                pref_r.raise_for_status()
+                pref_r.encoding = "utf-8"
+                pref_soup = BeautifulSoup(pref_r.text, "html.parser")
+
+                total = 0
+                for table in pref_soup.select("table.poweroutage_table"):
+                    for row in table.find_all("tr"):
+                        th = row.find("th")
+                        td = row.find("td")
+                        if not (th and td and "停電軒数" in th.get_text(strip=True)):
+                            continue
+                        count_text = td.get_text(strip=True)
+                        if "未満" in count_text:
+                            m2 = re.search(r"(\d+)軒未満", count_text)
+                            total += (int(m2.group(1)) - 1) if m2 else 1
+                        else:
+                            nums = re.findall(r"[\d,]+", count_text)
+                            if nums:
+                                total += int(nums[0].replace(",", ""))
+
+                result[pref_name] = max(total, 1)
+
+                # 更新日時（最初の都道府県の更新日時を使用）
+                if not ts:
+                    for span in pref_soup.select(".poweroutage_label .date"):
+                        m3 = re.search(r"(\d+)月(\d+)日\s+(\d+:\d+)\s*更新", span.get_text(strip=True))
+                        if m3:
+                            try:
+                                ts = datetime.strptime(
+                                    f"{current_year}/{m3.group(1)}/{m3.group(2)} {m3.group(3)}",
+                                    "%Y/%m/%d %H:%M",
+                                ).strftime("%Y年%m月%d日 %H:%M")
+                            except Exception:
+                                pass
+                            break
+
+            except Exception as exc:
+                logger.warning("Yahoo停電情報取得失敗 %s: %s", pref_name, exc)
+
+        if not ts:
+            ts = datetime.now().strftime("%Y年%m月%d日 %H:%M")
+
+        return result, ts
+
+    except Exception as exc:
+        logger.warning("中部電力PG(Yahoo)取得失敗: %s", exc)
+        return {p: None for p in _CHUBU_PREFS}, ""
 
 
 # ── 北陸電力送配電 ────────────────────────────────────────────────────────────
@@ -1447,7 +1410,7 @@ _REALTIME_JOBS: list[tuple] = [
     (fetch_hokkaido, "北海道電力ネットワーク", "https://teiden-info.hepco.co.jp/"),
     (fetch_tohoku,   "東北電力ネットワーク",   "https://nw.tohoku-epco.co.jp/teideninfo/"),
     (fetch_rikuden,  "北陸電力送配電",          "https://www.rikuden.co.jp/nw/teiden/otj010.html"),
-    (fetch_chubu,    "中部電力パワーグリッド",   "https://teiden.powergrid.chuden.co.jp/p/index.html"),
+    (fetch_chubu,    "中部電力パワーグリッド",   "https://typhoon.yahoo.co.jp/weather/poweroutage/"),
     (fetch_tepco,    "東京電力パワーグリッド",   "https://teideninfo.tepco.co.jp/"),
     (fetch_kansai,   "関西電力送配電",           "https://www.kansai-td.co.jp/teiden-info/index.php"),
     (fetch_shikoku,  "四国電力送配電",           "https://www.yonden.co.jp/nw/teiden-info/index.html"),
