@@ -777,6 +777,49 @@ a.tab-chip:hover:not(.active) { border-color: var(--accent); color: var(--accent
 /* ── Streamlit スピナー ─────────────────────────────────────── */
 [data-testid="stSpinner"] { color: var(--text-muted) !important; }
 
+/* ── 電力会社別 総停電軒数パネル ──────────────────────────── */
+.company-totals-panel {
+  padding: 10px 14px;
+  min-height: unset;
+  margin-bottom: 4px;
+}
+
+.company-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.company-total-item {
+  border-radius: 8px;
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.company-total-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctotal-zero  { font-size: 0.8rem; font-weight: 700; color: #16a34a; }
+.ctotal-ng    { font-size: 0.75rem; color: #94a3b8; }
+.ctotal-count { font-size: 0.82rem; font-weight: 700; color: #0f172a;
+                display: flex; align-items: center; gap: 4px; }
+.ctotal-dot   { display: inline-block; width: 8px; height: 8px;
+                border-radius: 50%; flex-shrink: 0; }
+
+@media (max-width: 700px) {
+  .company-totals-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* ── スクロールバー ─────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

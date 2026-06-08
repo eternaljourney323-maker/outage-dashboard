@@ -411,6 +411,47 @@ def build_japan_map_fig(df: pd.DataFrame) -> "go.Figure | None":
     return fig
 
 
+def build_company_totals_html(df: pd.DataFrame) -> str:
+    """電力会社別 総停電軒数パネル"""
+    items = ""
+    for company in _MAP_COMPANY_ORDER:
+        bg, border, txt, _ = _MAP_COMPANY_STYLES.get(company, ("#f1f5f9", "#94a3b8", "#475569", ""))
+        short = _short_company_name(company)
+        comp_df = df[df["data_source"] == company]
+        all_ng = comp_df.empty or (comp_df["data_status"] == "取得不可").all()
+        if all_ng:
+            count_html = '<span class="ctotal-ng">取得不可</span>'
+        else:
+            count = int(comp_df[comp_df["data_status"] == "取得済み"]["affected_customers"].sum())
+            if count == 0:
+                count_html = '<span class="ctotal-zero">停電なし</span>'
+            else:
+                if count >= 10000:
+                    dot_c = LEVEL_COLORS["10,000軒以上"]
+                elif count >= 1000:
+                    dot_c = LEVEL_COLORS["〜10,000軒"]
+                elif count >= 100:
+                    dot_c = LEVEL_COLORS["〜1,000軒"]
+                else:
+                    dot_c = LEVEL_COLORS["〜100軒"]
+                count_html = (
+                    f'<span class="ctotal-count">'
+                    f'<span class="ctotal-dot" style="background:{dot_c};"></span>'
+                    f'{count:,} 軒</span>'
+                )
+        items += (
+            f'<div class="company-total-item" style="background:{bg}; border:1px solid {border};">'
+            f'<div class="company-total-name" style="color:{txt};">{short}</div>'
+            f'{count_html}'
+            f'</div>'
+        )
+    return (
+        '<div class="panel-card company-totals-panel">'
+        f'<div class="company-totals-grid">{items}</div>'
+        '</div>'
+    )
+
+
 def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
     """スクリーンショット風の都道府県タイルマップ（フォールバック用）"""
     tiles = ""
@@ -1816,6 +1857,8 @@ if section == "realtime":
     )
 
     confirmed_active = len(active)
+
+    st.markdown(build_company_totals_html(df_rt), unsafe_allow_html=True)
 
     map_col, alert_col = st.columns([1.45, 0.95], gap="medium")
     with map_col:
