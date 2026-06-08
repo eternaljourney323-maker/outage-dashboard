@@ -1819,33 +1819,7 @@ if section == "realtime":
 
     map_col, alert_col = st.columns([1.45, 0.95], gap="medium")
     with map_col:
-        # ヘッダー＆凡例
-        st.markdown(
-            '<div class="panel-card" style="padding-bottom:6px;">'
-            '<div class="panel-title-row">'
-            '<div class="panel-title">電力会社・地域別 停電状況マップ</div>'
-            '<div class="map-legend">'
-            '<span><i style="background:#f0fdf4;border:1px solid #d1fae5;"></i>停電なし</span>'
-            '<span><i style="background:#fef08a"></i>〜100戸</span>'
-            '<span><i style="background:#fbbf24"></i>〜1,000戸</span>'
-            '<span><i style="background:#f97316"></i>1,001〜10,000戸</span>'
-            '<span><i style="background:#dc2626"></i>10,001戸〜</span>'
-            '<span><i style="background:#cbd5e1"></i>データなし</span>'
-            '</div></div>',
-            unsafe_allow_html=True,
-        )
-        fig_map = build_japan_map_fig(df_rt)
-        if fig_map is not None:
-            st.plotly_chart(fig_map, use_container_width=True,
-                            config={"displayModeBar": False})
-        else:
-            st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
-        st.markdown(
-            '<div class="map-footnote">※クリックでズーム。'
-            'データ提供: 各電力会社・レスキューナウ</div>'
-            '</div>',  # panel-card 閉じ
-            unsafe_allow_html=True,
-        )
+        st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
 
     with alert_col:
         st.markdown(build_emergency_table_html(df_rt), unsafe_allow_html=True)
