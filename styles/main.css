@@ -426,6 +426,22 @@ section[data-testid="stSidebar"] .stButton > button:active {
   white-space: nowrap;
 }
 
+.map-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px dashed;
+  border-radius: 4px;
+  font-size: clamp(0.38rem, 1.1vw, 0.52rem);
+  font-weight: 700;
+  line-height: 1.2;
+  opacity: 0.88;
+  pointer-events: none;
+  user-select: none;
+  padding: 1px;
+}
+
 .map-footnote {
   margin-top: 10px;
   text-align: right;

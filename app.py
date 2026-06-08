@@ -300,6 +300,33 @@ _PREF_TILE_SPAN = {
     "鹿児島県": (2, 1),
 }
 
+# 各電力会社エリアラベルの配置位置（グリッド内の空きセル）
+_COMPANY_LABEL_POS: dict[str, tuple[int, int]] = {
+    "北海道電力ネットワーク": (9, 1),   # 北海道(10-11, 1)の左
+    "東北電力ネットワーク":   (8, 3),   # 東北エリア中央左
+    "東京電力パワーグリッド": (8, 5),   # 東京PGエリア上
+    "北陸電力送配電":         (6, 6),   # 石川(7,6)・富山(8,6)の左
+    "中部電力パワーグリッド": (6, 7),   # 岐阜(8,7)・長野(9,7)の左
+    "関西電力送配電":         (4, 7),   # 兵庫(5,8)上左
+    "中国電力ネットワーク":   (1, 8),   # 山口/島根行の左端
+    "四国電力送配電":         (4, 12),  # 四国タイル(10-11行)下
+    "九州電力送配電":         (1, 9),   # 佐賀(1,10)の上
+    "沖縄電力":               (2, 13),  # 沖縄(1,13)の右
+}
+
+_COMPANY_LABEL_TEXT: dict[str, str] = {
+    "北海道電力ネットワーク": "北海道<br>電力NW",
+    "東北電力ネットワーク":   "東北<br>電力NW",
+    "東京電力パワーグリッド": "東京<br>電力PG",
+    "北陸電力送配電":         "北陸<br>電力",
+    "中部電力パワーグリッド": "中部<br>電力PG",
+    "関西電力送配電":         "関西<br>電力",
+    "中国電力ネットワーク":   "中国<br>電力NW",
+    "四国電力送配電":         "四国<br>電力",
+    "九州電力送配電":         "九州<br>電力",
+    "沖縄電力":               "沖縄<br>電力",
+}
+
 
 def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
     """スクリーンショット風の都道府県タイルマップ"""
@@ -345,6 +372,23 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
             f'<span class="map-tile-label" style="color:{txt};">{pref_label}</span>'
             f'{count_label}'
             f'</a>'
+        )
+
+    # 各電力会社エリアラベル
+    for company in _MAP_COMPANY_ORDER:
+        if company not in _COMPANY_LABEL_POS:
+            continue
+        col, row = _COMPANY_LABEL_POS[company]
+        bg_light, border_c, txt_c, _ = _MAP_COMPANY_STYLES.get(
+            company, ("#f1f5f9", "#94a3b8", "#475569", "")
+        )
+        label_text = _COMPANY_LABEL_TEXT.get(company, company[:4])
+        tiles += (
+            f'<div class="map-label"'
+            f' style="grid-column:{col}; grid-row:{row};'
+            f' background:{bg_light}; color:{txt_c}; border-color:{border_c};">'
+            f'{label_text}'
+            f'</div>'
         )
 
     return (
