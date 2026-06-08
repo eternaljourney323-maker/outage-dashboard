@@ -473,10 +473,10 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
         '<div class="panel-title">電力会社・地域別 停電状況マップ</div>'
         '<div class="map-legend">'
         '<span><i style="background:#cbd5e1"></i>停電なし</span>'
-        '<span><i style="background:#fde68a"></i>〜1,000戸</span>'
-        '<span><i style="background:#fbbf24"></i>1,001〜10,000戸</span>'
-        '<span><i style="background:#ea580c"></i>10,001〜100,000戸</span>'
-        '<span><i style="background:#dc2626"></i>100,001戸〜</span>'
+        '<span><i style="background:#fde68a"></i>〜1,000軒</span>'
+        '<span><i style="background:#fbbf24"></i>1,001〜10,000軒</span>'
+        '<span><i style="background:#ea580c"></i>10,001〜100,000軒</span>'
+        '<span><i style="background:#dc2626"></i>100,001軒〜</span>'
         '<span><i style="background:#94a3b8"></i>データなし</span>'
         '</div></div>'
         '<div class="map-panel-body">'
@@ -515,7 +515,7 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
                 '<tr>'
                 f'<td><span class="severity-badge" style="background:{sev_bg};">{sev}</span></td>'
                 f'<td>{_html.escape(str(r["prefecture"]))}</td>'
-                f'<td style="text-align:right; font-weight:700;">{count:,} 戸</td>'
+                f'<td style="text-align:right; font-weight:700;">{count:,} 軒</td>'
                 f'<td>{status}</td>'
                 '</tr>'
             )
@@ -523,9 +523,9 @@ def build_emergency_table_html(df: pd.DataFrame) -> str:
         '<div class="panel-card emergency-panel">'
         '<div class="panel-title-row"><div class="panel-title">緊急度の高い停電（上位10件）</div></div>'
         '<table class="emergency-table">'
-        '<thead><tr><th>緊急度</th><th>エリア</th><th>停電戸数</th><th>状況</th></tr></thead>'
+        '<thead><tr><th>緊急度</th><th>エリア</th><th>停電軒数</th><th>状況</th></tr></thead>'
         f'<tbody>{body}</tbody></table>'
-        '<div style="color:#64748b; font-size:.72rem; padding-top:8px;">※停電戸数は各社公式サイト取得値です</div>'
+        '<div style="color:#64748b; font-size:.72rem; padding-top:8px;">※停電軒数は各社公式サイト取得値です</div>'
         '</div>'
     )
 
@@ -647,7 +647,7 @@ def build_prefecture_rank_panel_html(
     area_options: Optional[List[str]] = None,
     selected_area: str = "all",
 ) -> str:
-    """下部カード: 都道府県/電力会社別 停電戸数ランキング"""
+    """下部カード: 都道府県/電力会社別 停電軒数ランキング"""
     rank_limit = 10 if rank_limit == 10 else 20
     rank_group = "company" if rank_group == "company" else "pref"
     area_options = area_options or ["all"]
@@ -689,14 +689,14 @@ def build_prefecture_rank_panel_html(
             '<div class="rank-track">'
             f'<div class="rank-fill" style="width:{width:.1f}%; background:{color};"></div>'
             '</div>'
-            f'<div class="rank-value">{count:,} 戸</div>'
+            f'<div class="rank-value">{count:,} 軒</div>'
             '</div>'
         )
     return (
         '<div class="analytics-card">'
         '<div class="analytics-head">'
         '<div class="analytics-head-left">'
-        f'<div class="panel-title">{"電力会社別" if rank_group == "company" else "都道府県別"} 停電戸数（推定）</div>'
+        f'<div class="panel-title">{"電力会社別" if rank_group == "company" else "都道府県別"} 停電軒数（推定）</div>'
         '</div>'
         '</div>'
         f'<div class="rank-chart">{rows}</div>'
@@ -1797,8 +1797,8 @@ if section == "realtime":
     with k1:
         st.markdown(f"""
         <div class="kpi-card red">
-          <div class="kpi-head"><span class="kpi-icon">👥</span><span class="kpi-label">停電影響戸数（推定）</span></div>
-          <div class="kpi-value">{total:,}<span class="unit">戸</span></div>
+          <div class="kpi-head"><span class="kpi-icon">👥</span><span class="kpi-label">停電影響軒数（推定）</span></div>
+          <div class="kpi-value">{total:,}<span class="unit">軒</span></div>
           <div class="kpi-sub">取得済み地域のみ</div>
         </div>""", unsafe_allow_html=True)
     with k2:
