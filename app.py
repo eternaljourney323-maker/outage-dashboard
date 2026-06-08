@@ -330,13 +330,6 @@ _COMPANY_LABEL_TEXT: dict[str, str] = {
 
 def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
     """スクリーンショット風の都道府県タイルマップ"""
-    company_rows = ""
-    for company in _MAP_COMPANY_ORDER:
-        _, _, color, short = _MAP_COMPANY_STYLES[company]
-        company_rows += (
-            f'<div class="map-company-row" style="color:{color};">{short}</div>'
-        )
-
     tiles = ""
     for pref, (col, row) in _PREF_TILE_POS.items():
         dfr = df[df["prefecture"] == pref]
@@ -404,7 +397,6 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
         '<span><i style="background:#94a3b8"></i>データなし</span>'
         '</div></div>'
         '<div class="map-panel-body">'
-        f'<div class="map-company-list">{company_rows}</div>'
         '<div class="map-tile-viewport">'
         f'<div class="map-tile-grid">{tiles}</div>'
         '</div></div>'

@@ -339,31 +339,7 @@ section[data-testid="stSidebar"] .stButton > button:active {
 }
 
 .map-panel-body {
-  display: grid;
-  grid-template-columns: minmax(88px, 170px) minmax(0, 1fr);
-  gap: clamp(8px, 2vw, 18px);
-  align-items: start;
   min-width: 0;
-}
-
-.map-company-list {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.map-company-row {
-  display: flex;
-  align-items: center;
-  min-height: 27px;
-  border-bottom: 1px solid #edf2f7;
-  font-size: clamp(0.58rem, 1.4vw, 0.72rem);
-  font-weight: 700;
-  padding: 0 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .map-tile-viewport {
@@ -378,10 +354,10 @@ section[data-testid="stSidebar"] .stButton > button:active {
 
 .map-tile-grid {
   display: grid;
-  grid-template-columns: repeat(11, minmax(22px, 46px));
-  grid-template-rows: repeat(13, minmax(20px, 37px));
+  grid-template-columns: repeat(11, minmax(30px, 62px));
+  grid-template-rows: repeat(13, minmax(28px, 56px));
   gap: 3px;
-  width: min(100%, 528px);
+  width: min(100%, 720px);
   margin: 0 auto;
 }
 
@@ -394,7 +370,7 @@ section[data-testid="stSidebar"] .stButton > button:active {
   flex-direction: column;
   border: 2px solid transparent;
   border-radius: 5px;
-  font-size: clamp(0.52rem, 1.8vw, 0.8rem);
+  font-size: clamp(0.58rem, 1.6vw, 0.88rem);
   font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
   cursor: pointer;
@@ -450,24 +426,10 @@ section[data-testid="stSidebar"] .stButton > button:active {
 }
 
 @media (max-width: 900px) {
-  .map-panel-body {
-    grid-template-columns: 1fr;
-  }
-
-  .map-company-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .map-company-row {
-    white-space: normal;
-    text-align: center;
-    justify-content: center;
-    padding: 4px 6px;
-  }
-
   .map-tile-grid {
-    width: min(100%, 528px);
+    grid-template-columns: repeat(11, minmax(22px, 56px));
+    grid-template-rows: repeat(13, minmax(20px, 48px));
+    width: min(100%, 660px);
   }
 }
 
