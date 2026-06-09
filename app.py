@@ -2015,7 +2015,7 @@ with st.sidebar:
         ("🌧️", "高解像度降水ナウキャスト", "JMA", "#2563eb",
          "https://www.jma.go.jp/bosai/nowc/#elm=hrpns"),
         ("💨", "強風・突風情報",     "tenki","#0891b2",
-         "https://tenki.jp/wind-graph/"),
+         "https://tenki.jp/wind/"),
         ("🌩️", "雷・大雨（tenki）", "tenki","#7c3aed",
          "https://tenki.jp/radar/"),
         ("📡", "気象レーダー",       "JMA",  "#16a34a",
