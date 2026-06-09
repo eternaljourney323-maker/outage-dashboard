@@ -7,6 +7,7 @@ import streamlit as st
 import streamlit.components.v1 as _components
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as _pio
 from plotly.subplots import make_subplots
 import pandas as pd
 from datetime import datetime
@@ -391,16 +392,15 @@ _PREF_LABEL_POS_OVERRIDE = {
 
 
 def build_japan_map_fig(df: pd.DataFrame):
-    """電力会社エリア別色分け日本地図（都道府県名ラベル付き）"""
+    """電力会社エリア別色分け日本地図（停電エリア点滅・数字のみ表示）"""
     geojson = _fetch_japan_geojson()
     if geojson is None:
         return None
 
-    # 電力会社インデックス → 離散カラースケール
+    # 電力会社インデックス → 離散カラースケール（trace 0）
     company_to_idx = {c: i for i, c in enumerate(_MAP_COMPANY_ORDER)}
     company_colors = [_MAP_COMPANY_STYLES[c][0] for c in _MAP_COMPANY_ORDER]
-    n = len(company_colors)  # 10
-
+    n = len(company_colors)
     eps = 1e-5
     colorscale = []
     for i, color in enumerate(company_colors):
@@ -423,7 +423,8 @@ def build_japan_map_fig(df: pd.DataFrame):
         axis=1,
     )
 
-    choropleth = go.Choropleth(
+    # trace 0: ベースコロプレス（全都道府県・会社色）
+    choropleth_base = go.Choropleth(
         geojson=geojson,
         featureidkey="properties.nam_ja",
         locations=df_map["prefecture"].tolist(),
@@ -437,14 +438,14 @@ def build_japan_map_fig(df: pd.DataFrame):
         hoverinfo="text",
     )
 
-    # セントロイド算出（名前ラベル・軒数ラベル共用）
+    # セントロイド算出
     def _bbox_area(poly):
         ring = poly[0]
         xs = [c[0] for c in ring]
         ys = [c[1] for c in ring]
         return (max(xs) - min(xs)) * (max(ys) - min(ys))
 
-    centroids = {}  # nam_ja -> (lon, lat)
+    centroids = {}
     for feature in geojson["features"]:
         name = feature["properties"]["nam_ja"]
         geom = feature["geometry"]
@@ -464,56 +465,78 @@ def build_japan_map_fig(df: pd.DataFrame):
                 sum(c[1] for c in coords) / len(coords),
             )
 
-    # 都道府県名ラベル
-    name_lons, name_lats, name_texts = [], [], []
-    for name, (lon, lat) in centroids.items():
-        name_lons.append(lon)
-        name_lats.append(lat)
-        name_texts.append(_pref_short_label(name))
+    # 停電エリア情報
+    outage_df = df_map[
+        (df_map["data_status"] == "取得済み") & (df_map["affected_customers"] > 0)
+    ]
+    outage_prefs = [r["prefecture"] for _, r in outage_df.iterrows() if r["prefecture"] in centroids]
+    has_outages = len(outage_prefs) > 0
 
-    labels = go.Scattergeo(
-        lon=name_lons, lat=name_lats, text=name_texts,
+    # trace 1: アラートオーバーレイ（停電エリアのみ・オレンジ、点滅）
+    alert_lons = [centroids[p][0] for p in outage_prefs]
+    alert_lats = [centroids[p][1] for p in outage_prefs]
+    alert_overlay = go.Choropleth(
+        geojson=geojson,
+        featureidkey="properties.nam_ja",
+        locations=outage_prefs,
+        z=[1.0] * len(outage_prefs),
+        colorscale=[[0, "rgba(249,115,22,0.55)"], [1, "rgba(249,115,22,0.55)"]],
+        zmin=0, zmax=1,
+        showscale=False,
+        marker_line_color="rgba(0,0,0,0)",
+        marker_line_width=0,
+        hoverinfo="skip",
+        visible=has_outages,
+    )
+
+    # trace 2: 都道府県名ラベル（静的）
+    name_labels = go.Scattergeo(
+        lon=[centroids[k][0] for k in centroids],
+        lat=[centroids[k][1] for k in centroids],
+        text=[_pref_short_label(k) for k in centroids],
         mode="text",
         textfont=dict(size=8, color="#334155", family="sans-serif"),
         showlegend=False,
         hoverinfo="skip",
     )
 
-    # 停電軒数ラベル（停電ありの都道府県のみ・都道府県名の下に強調表示）
-    outage_df = df_map[
-        (df_map["data_status"] == "取得済み") & (df_map["affected_customers"] > 0)
-    ]
-    count_lons, count_lats, count_texts, count_colors = [], [], [], []
+    # trace 3: 停電数ラベル（数字のみ・点滅）
+    count_lons, count_lats, count_texts = [], [], []
     for _, row in outage_df.iterrows():
         pref = row["prefecture"]
-        count = int(row["affected_customers"])
         if pref not in centroids:
             continue
         lon, lat = centroids[pref]
         count_lons.append(lon)
-        count_lats.append(lat - 0.42)  # 都道府県名の下に配置
-        if count >= 10000:
-            count_texts.append(f"{count:,}軒")
-            count_colors.append("#7f1d1d")
-        elif count >= 1000:
-            count_texts.append(f"{count:,}軒")
-            count_colors.append("#9a3412")
-        elif count >= 100:
-            count_texts.append(f"{count}軒")
-            count_colors.append("#92400e")
-        else:
-            count_texts.append(f"{count}軒")
-            count_colors.append("#78350f")
+        count_lats.append(lat - 0.44)
+        count_texts.append(f"{int(row['affected_customers']):,}")
 
     count_labels = go.Scattergeo(
         lon=count_lons, lat=count_lats, text=count_texts,
         mode="text",
-        textfont=dict(size=9, color=count_colors, family="sans-serif"),
+        textfont=dict(size=10, color="#7f1d1d", family="sans-serif"),
         showlegend=False,
         hoverinfo="skip",
+        visible=has_outages,
     )
 
-    fig = go.Figure(data=[choropleth, labels, count_labels])
+    fig = go.Figure(data=[choropleth_base, alert_overlay, name_labels, count_labels])
+
+    # 点滅アニメーション（停電ありの場合のみ）
+    if has_outages:
+        fig.frames = [
+            go.Frame(
+                name="on",
+                data=[go.Choropleth(visible=True), go.Scattergeo(visible=True)],
+                traces=[1, 3],
+            ),
+            go.Frame(
+                name="off",
+                data=[go.Choropleth(visible=False), go.Scattergeo(visible=False)],
+                traces=[1, 3],
+            ),
+        ]
+
     fig.update_geos(
         visible=True,
         showocean=True,
@@ -2005,8 +2028,38 @@ if section == "realtime":
                 '</div>',
                 unsafe_allow_html=True,
             )
-            st.plotly_chart(fig_map, use_container_width=True,
-                            config={"displayModeBar": False})
+            _has_anim = bool(getattr(fig_map, "frames", None))
+            if _has_anim:
+                _fig_html = _pio.to_html(
+                    fig_map,
+                    include_plotlyjs="cdn",
+                    full_html=True,
+                    config={"displayModeBar": False, "responsive": True},
+                )
+                _loop_js = """<script>
+(function(){
+  function loop(gd){
+    Plotly.animate(gd,null,{
+      frame:{duration:700,redraw:true},
+      transition:{duration:150},
+      mode:'immediate'
+    }).then(function(){loop(gd);});
+  }
+  function init(){
+    var gd=document.querySelector('.plotly-graph-div');
+    if(!gd||!gd._transitionData||!gd._transitionData._frames||!gd._transitionData._frames.length){
+      setTimeout(init,200);return;
+    }
+    loop(gd);
+  }
+  setTimeout(init,600);
+})();
+</script>"""
+                _fig_html = _fig_html.replace("</body>", _loop_js + "</body>")
+                _components.html(_fig_html, height=630, scrolling=False)
+            else:
+                st.plotly_chart(fig_map, use_container_width=True,
+                                config={"displayModeBar": False})
         else:
             st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
 
