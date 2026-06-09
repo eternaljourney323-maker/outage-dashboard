@@ -5,6 +5,7 @@ import logging
 from typing import Optional, List
 import streamlit as st
 import streamlit.components.v1 as _components
+import json as _json
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as _pio
@@ -2028,38 +2029,52 @@ if section == "realtime":
                 '</div>',
                 unsafe_allow_html=True,
             )
-            _has_anim = bool(getattr(fig_map, "frames", None))
-            if _has_anim:
-                _fig_html = _pio.to_html(
-                    fig_map,
-                    include_plotlyjs="cdn",
-                    full_html=True,
-                    config={"displayModeBar": False, "responsive": True},
-                )
-                _loop_js = """<script>
-(function(){
-  function loop(gd){
-    Plotly.animate(gd,null,{
-      frame:{duration:700,redraw:true},
-      transition:{duration:150},
-      mode:'immediate'
-    }).then(function(){loop(gd);});
-  }
-  function init(){
+            # 都道府県 → 電力会社URLのマッピング（クリックナビ用）
+            _pref_url = {
+                str(r["prefecture"]): _COMPANY_URLS.get(str(r.get("data_source", "")), "")
+                for _, r in df_rt.iterrows()
+                if _COMPANY_URLS.get(str(r.get("data_source", "")))
+            }
+            _pref_url_js = _json.dumps(_pref_url, ensure_ascii=False)
+            _fig_html = _pio.to_html(
+                fig_map,
+                include_plotlyjs="cdn",
+                full_html=True,
+                config={"displayModeBar": False, "responsive": True},
+            )
+            _click_anim_js = f"""<script>
+(function(){{
+  var PREF_URL={_pref_url_js};
+  function init(){{
     var gd=document.querySelector('.plotly-graph-div');
-    if(!gd||!gd._transitionData||!gd._transitionData._frames||!gd._transitionData._frames.length){
-      setTimeout(init,200);return;
-    }
-    loop(gd);
-  }
+    if(!gd||!gd._fullLayout){{setTimeout(init,200);return;}}
+    // クリック → 電力会社停電情報ページを新タブで開く
+    gd.on('plotly_click',function(d){{
+      if(!d.points||!d.points.length)return;
+      var loc=d.points[0].location;
+      if(loc&&PREF_URL[loc])window.open(PREF_URL[loc],'_blank','noopener,noreferrer');
+    }});
+    // ホバー時にポインターカーソル
+    var s=document.createElement('style');
+    s.textContent='.js-plotly-plot .geo path{{cursor:pointer;}}';
+    document.head.appendChild(s);
+    // 停電ありの場合のみ点滅アニメーション
+    var fr=gd._transitionData&&gd._transitionData._frames;
+    if(fr&&fr.length){{
+      (function loop(){{
+        Plotly.animate(gd,null,{{
+          frame:{{duration:700,redraw:true}},
+          transition:{{duration:150}},
+          mode:'immediate'
+        }}).then(loop);
+      }})();
+    }}
+  }}
   setTimeout(init,600);
-})();
+}})();
 </script>"""
-                _fig_html = _fig_html.replace("</body>", _loop_js + "</body>")
-                _components.html(_fig_html, height=630, scrolling=False)
-            else:
-                st.plotly_chart(fig_map, use_container_width=True,
-                                config={"displayModeBar": False})
+            _fig_html = _fig_html.replace("</body>", _click_anim_js + "</body>")
+            _components.html(_fig_html, height=630, scrolling=False)
         else:
             st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
 
