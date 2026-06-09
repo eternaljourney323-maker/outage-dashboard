@@ -84,6 +84,14 @@ header[data-testid="stHeader"],
 [data-testid="stAppDeployButton"],
 [data-testid="stMainMenu"] { display: none !important; }
 
+/* サイドバー開閉ボタンをカスタムヘッダー(58px)の下に移動 */
+[data-testid="stSidebarCollapseButton"] {
+  position: fixed !important;
+  top: 62px !important;
+  left: 8px !important;
+  z-index: 9999 !important;
+}
+
 /* ── サイドバー ─────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
   background: var(--sidebar-bg) !important;
