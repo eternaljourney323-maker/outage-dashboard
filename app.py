@@ -364,14 +364,55 @@ def _fetch_japan_geojson():
         return None
 
 
+def _pref_short_label(name: str) -> str:
+    """都道府県名を地図ラベル用に短縮（北海道・京都など誤切りを防ぐ）"""
+    _FIXED = {
+        "北海道": "北海道",
+        "東京都": "東京",
+        "京都府": "京都",
+        "大阪府": "大阪",
+    }
+    if name in _FIXED:
+        return _FIXED[name]
+    if name.endswith("県"):
+        return name[:-1]
+    return name
+
+
+# ラベル位置の手動補正（重なり・はみ出し対策）
+_PREF_LABEL_POS_OVERRIDE = {
+    "北海道":  (142.8, 43.4),
+    "東京都":  (139.4, 35.9),
+    "神奈川県": (139.4, 35.4),
+    "埼玉県":  (139.3, 36.1),
+    "千葉県":  (140.2, 35.6),
+    "京都府":  (135.5, 35.2),
+}
+
+
 def build_japan_map_fig(df: pd.DataFrame):
-    """地理的な日本地図コロプレス（都道府県名ラベル付き）"""
+    """電力会社エリア別色分け日本地図（都道府県名ラベル付き）"""
     geojson = _fetch_japan_geojson()
     if geojson is None:
         return None
 
+    # 電力会社インデックス → 離散カラースケール
+    company_to_idx = {c: i for i, c in enumerate(_MAP_COMPANY_ORDER)}
+    company_colors = [_MAP_COMPANY_STYLES[c][0] for c in _MAP_COMPANY_ORDER]
+    n = len(company_colors)  # 10
+
+    eps = 1e-5
+    colorscale = []
+    for i, color in enumerate(company_colors):
+        t0 = i / n
+        t1 = (i + 1) / n
+        colorscale.append([t0, color])
+        if i < n - 1:
+            colorscale.append([t1 - eps, color])
+    colorscale.append([1.0, company_colors[-1]])
+
     df_map = df.copy()
-    df_map["level_num"] = df_map["outage_level"].map(_MAP_LEVEL_NUM).fillna(0).astype(int)
+    df_map["company_idx"] = df_map["data_source"].map(company_to_idx).fillna(0).astype(int)
     df_map["hover"] = df_map.apply(
         lambda r: (
             f"<b>{r['prefecture']}</b><br>{r['data_source']}<br>{r['outage_level']}"
@@ -382,14 +423,13 @@ def build_japan_map_fig(df: pd.DataFrame):
         axis=1,
     )
 
-    # コロプレストレース
     choropleth = go.Choropleth(
         geojson=geojson,
         featureidkey="properties.nam_ja",
         locations=df_map["prefecture"].tolist(),
-        z=df_map["level_num"].tolist(),
-        colorscale=_MAP_COLORSCALE,
-        zmin=0, zmax=5,
+        z=df_map["company_idx"].tolist(),
+        colorscale=colorscale,
+        zmin=0, zmax=n,
         showscale=False,
         marker_line_color="white",
         marker_line_width=0.8,
@@ -397,22 +437,33 @@ def build_japan_map_fig(df: pd.DataFrame):
         hoverinfo="text",
     )
 
-    # 都道府県名ラベル（セントロイド近似）
+    # 都道府県名ラベル（セントロイド近似 + 手動補正）
+    def _bbox_area(poly):
+        ring = poly[0]
+        xs = [c[0] for c in ring]
+        ys = [c[1] for c in ring]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+
     lons, lats, texts = [], [], []
     for feature in geojson["features"]:
         name = feature["properties"]["nam_ja"]
         geom = feature["geometry"]
-        if geom["type"] == "Polygon":
-            coords = geom["coordinates"][0]
-        elif geom["type"] == "MultiPolygon":
-            coords = max(geom["coordinates"], key=lambda p: len(p[0]))[0]
+        if name in _PREF_LABEL_POS_OVERRIDE:
+            lon, lat = _PREF_LABEL_POS_OVERRIDE[name]
         else:
-            continue
-        if coords:
-            lons.append(sum(c[0] for c in coords) / len(coords))
-            lats.append(sum(c[1] for c in coords) / len(coords))
-            short = name.replace("県", "").replace("都", "").replace("道", "").replace("府", "")
-            texts.append(short)
+            if geom["type"] == "Polygon":
+                coords = geom["coordinates"][0]
+            elif geom["type"] == "MultiPolygon":
+                coords = max(geom["coordinates"], key=_bbox_area)[0]
+            else:
+                continue
+            if not coords:
+                continue
+            lon = sum(c[0] for c in coords) / len(coords)
+            lat = sum(c[1] for c in coords) / len(coords)
+        lons.append(lon)
+        lats.append(lat)
+        texts.append(_pref_short_label(name))
 
     labels = go.Scattergeo(
         lon=lons, lat=lats, text=texts,
@@ -1900,19 +1951,18 @@ if section == "realtime":
     with map_col:
         fig_map = build_japan_map_fig(df_rt)
         if fig_map is not None:
+            _legend_items = "".join(
+                f'<span><i style="background:{_MAP_COMPANY_STYLES[c][0]};'
+                f'border:1px solid {_MAP_COMPANY_STYLES[c][1]};"></i>'
+                f'{_short_company_name(c)}</span>'
+                for c in _MAP_COMPANY_ORDER
+            )
             st.markdown(
-                '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'
-                'padding:6px 2px 2px;">'
-                '<span style="font-size:.82rem;font-weight:700;color:#0f172a;white-space:nowrap;">'
+                '<div style="padding:6px 2px 2px;">'
+                '<span style="font-size:.82rem;font-weight:700;color:#0f172a;">'
                 '電力会社・地域別 停電状況マップ</span>'
-                '<div class="map-legend">'
-                '<span><i style="background:#d1fae5;border:1px solid #6ee7b7;"></i>停電なし</span>'
-                '<span><i style="background:#fde68a"></i>〜100軒</span>'
-                '<span><i style="background:#fbbf24"></i>〜1,000軒</span>'
-                '<span><i style="background:#ea580c"></i>〜10,000軒</span>'
-                '<span><i style="background:#dc2626"></i>10,001軒〜</span>'
-                '<span><i style="background:#94a3b8"></i>データなし</span>'
-                '</div></div>',
+                f'<div class="map-legend" style="margin-top:4px;">{_legend_items}</div>'
+                '</div>',
                 unsafe_allow_html=True,
             )
             st.plotly_chart(fig_map, use_container_width=True,
