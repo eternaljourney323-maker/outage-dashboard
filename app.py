@@ -365,7 +365,7 @@ def _fetch_japan_geojson():
 
 
 def build_japan_map_fig(df: pd.DataFrame):
-    """地理的な日本地図コロプレス（Yahoo地図風）"""
+    """地理的な日本地図コロプレス（都道府県名ラベル付き）"""
     geojson = _fetch_japan_geojson()
     if geojson is None:
         return None
@@ -382,43 +382,67 @@ def build_japan_map_fig(df: pd.DataFrame):
         axis=1,
     )
 
-    fig = px.choropleth(
-        df_map,
+    # コロプレストレース
+    choropleth = go.Choropleth(
         geojson=geojson,
-        locations="prefecture",
         featureidkey="properties.nam_ja",
-        color="level_num",
-        color_continuous_scale=_MAP_COLORSCALE,
-        range_color=(0, 5),
-        hover_name="hover",
-        hover_data={"level_num": False, "prefecture": False, "hover": False},
-        height=520,
+        locations=df_map["prefecture"].tolist(),
+        z=df_map["level_num"].tolist(),
+        colorscale=_MAP_COLORSCALE,
+        zmin=0, zmax=5,
+        showscale=False,
+        marker_line_color="white",
+        marker_line_width=0.8,
+        hovertext=df_map["hover"].tolist(),
+        hoverinfo="text",
     )
-    fig.update_traces(marker_line_color="white", marker_line_width=0.8)
+
+    # 都道府県名ラベル（セントロイド近似）
+    lons, lats, texts = [], [], []
+    for feature in geojson["features"]:
+        name = feature["properties"]["nam_ja"]
+        geom = feature["geometry"]
+        if geom["type"] == "Polygon":
+            coords = geom["coordinates"][0]
+        elif geom["type"] == "MultiPolygon":
+            coords = max(geom["coordinates"], key=lambda p: len(p[0]))[0]
+        else:
+            continue
+        if coords:
+            lons.append(sum(c[0] for c in coords) / len(coords))
+            lats.append(sum(c[1] for c in coords) / len(coords))
+            short = name.replace("県", "").replace("都", "").replace("道", "").replace("府", "")
+            texts.append(short)
+
+    labels = go.Scattergeo(
+        lon=lons, lat=lats, text=texts,
+        mode="text",
+        textfont=dict(size=8, color="#1e293b", family="sans-serif"),
+        showlegend=False,
+        hoverinfo="skip",
+    )
+
+    fig = go.Figure(data=[choropleth, labels])
     fig.update_geos(
-        fitbounds="locations",
         visible=True,
         showocean=True,
         oceancolor="#7db9d4",
-        showland=True,
-        landcolor="#ddeef8",
+        showland=False,
         showframe=False,
         showcoastlines=False,
         showlakes=True,
         lakecolor="#7db9d4",
-        bgcolor="rgba(0,0,0,0)",
+        bgcolor="#7db9d4",
+        lataxis_range=[23, 46],
+        lonaxis_range=[122, 149],
     )
     fig.update_layout(
-        margin={"r": 0, "t": 36, "l": 0, "b": 0},
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
         coloraxis_showscale=False,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
+        paper_bgcolor="#7db9d4",
+        plot_bgcolor="#7db9d4",
+        height=600,
         hoverlabel=dict(bgcolor="white", font_size=13, font_family="sans-serif"),
-        title=dict(
-            text="電力会社・地域別 停電状況マップ",
-            font=dict(size=14, family="sans-serif", color="#0f172a"),
-            x=0.01, y=0.99, xanchor="left", yanchor="top",
-        ),
     )
     return fig
 
@@ -1876,19 +1900,23 @@ if section == "realtime":
     with map_col:
         fig_map = build_japan_map_fig(df_rt)
         if fig_map is not None:
-            st.plotly_chart(fig_map, use_container_width=True,
-                            config={"displayModeBar": False})
             st.markdown(
-                '<div class="map-legend" style="margin-top:-8px; justify-content:center;">'
+                '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'
+                'padding:6px 2px 2px;">'
+                '<span style="font-size:.82rem;font-weight:700;color:#0f172a;white-space:nowrap;">'
+                '電力会社・地域別 停電状況マップ</span>'
+                '<div class="map-legend">'
                 '<span><i style="background:#d1fae5;border:1px solid #6ee7b7;"></i>停電なし</span>'
                 '<span><i style="background:#fde68a"></i>〜100軒</span>'
                 '<span><i style="background:#fbbf24"></i>〜1,000軒</span>'
                 '<span><i style="background:#ea580c"></i>〜10,000軒</span>'
                 '<span><i style="background:#dc2626"></i>10,001軒〜</span>'
                 '<span><i style="background:#94a3b8"></i>データなし</span>'
-                '</div>',
+                '</div></div>',
                 unsafe_allow_html=True,
             )
+            st.plotly_chart(fig_map, use_container_width=True,
+                            config={"displayModeBar": False})
         else:
             st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
 

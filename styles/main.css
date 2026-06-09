@@ -438,6 +438,11 @@ section[data-testid="stSidebar"] .stButton > button:active {
   min-width: 0;
 }
 
+/* 地図カラム内のPlotlyチャートの上余白を詰める */
+[data-testid="stPlotlyChart"] {
+  margin-top: -16px;
+}
+
 @media (max-width: 960px) {
   [data-testid="stHorizontalBlock"]:has(.map-panel) {
     flex-wrap: wrap !important;
