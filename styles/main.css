@@ -84,10 +84,19 @@ header[data-testid="stHeader"],
 [data-testid="stAppDeployButton"],
 [data-testid="stMainMenu"] { display: none !important; }
 
-/* サイドバー開閉ボタンをカスタムヘッダー(58px)の下に移動 */
+/* 展開ボタン（サイドバーが閉じているとき・ヘッダー外） */
 [data-testid="stSidebarCollapseButton"] {
   position: fixed !important;
   top: 62px !important;
+  left: 8px !important;
+  z-index: 9999 !important;
+}
+
+/* 折りたたみボタン（サイドバーが開いているとき・サイドバー内）
+   sidebar は top:58px なので absolute で top:4px → 視覚的に 62px の位置 */
+section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] {
+  position: absolute !important;
+  top: 4px !important;
   left: 8px !important;
   z-index: 9999 !important;
 }
