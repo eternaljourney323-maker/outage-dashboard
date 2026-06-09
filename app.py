@@ -330,6 +330,97 @@ _COMPANY_LABEL_TEXT: dict[str, str] = {
     "沖縄電力":               "沖縄<br>電力",
 }
 
+_JAPAN_GEOJSON_URL = (
+    "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
+)
+
+_MAP_LEVEL_NUM = {
+    "データ未取得":   0,
+    "停電なし":       1,
+    "〜100軒":        2,
+    "〜1,000軒":      3,
+    "〜10,000軒":     4,
+    "10,000軒以上":   5,
+}
+
+_MAP_COLORSCALE = [
+    [0.000, "#94a3b8"], [0.166, "#94a3b8"],
+    [0.167, "#d1fae5"], [0.333, "#d1fae5"],
+    [0.334, "#fde68a"], [0.500, "#fde68a"],
+    [0.501, "#fbbf24"], [0.667, "#fbbf24"],
+    [0.668, "#ea580c"], [0.833, "#ea580c"],
+    [0.834, "#dc2626"], [1.000, "#dc2626"],
+]
+
+
+@st.cache_data(ttl=86400 * 7, show_spinner=False)
+def _fetch_japan_geojson():
+    try:
+        r = _req.get(_JAPAN_GEOJSON_URL, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception as exc:
+        logger.warning("Japan GeoJSON 取得失敗: %s", exc)
+        return None
+
+
+def build_japan_map_fig(df: pd.DataFrame):
+    """地理的な日本地図コロプレス（Yahoo地図風）"""
+    geojson = _fetch_japan_geojson()
+    if geojson is None:
+        return None
+
+    df_map = df.copy()
+    df_map["level_num"] = df_map["outage_level"].map(_MAP_LEVEL_NUM).fillna(0).astype(int)
+    df_map["hover"] = df_map.apply(
+        lambda r: (
+            f"<b>{r['prefecture']}</b><br>{r['data_source']}<br>{r['outage_level']}"
+            + (f"<br><b>{int(r['affected_customers']):,}軒</b>"
+               if r.get("data_status") == "取得済み" and r["affected_customers"] > 0
+               else "")
+        ),
+        axis=1,
+    )
+
+    fig = px.choropleth(
+        df_map,
+        geojson=geojson,
+        locations="prefecture",
+        featureidkey="properties.nam_ja",
+        color="level_num",
+        color_continuous_scale=_MAP_COLORSCALE,
+        range_color=(0, 5),
+        hover_name="hover",
+        hover_data={"level_num": False, "prefecture": False, "hover": False},
+        height=520,
+    )
+    fig.update_traces(marker_line_color="white", marker_line_width=0.8)
+    fig.update_geos(
+        fitbounds="locations",
+        visible=True,
+        showocean=True,
+        oceancolor="#7db9d4",
+        showland=True,
+        landcolor="#ddeef8",
+        showframe=False,
+        showcoastlines=False,
+        showlakes=True,
+        lakecolor="#7db9d4",
+        bgcolor="rgba(0,0,0,0)",
+    )
+    fig.update_layout(
+        margin={"r": 0, "t": 36, "l": 0, "b": 0},
+        coloraxis_showscale=False,
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        hoverlabel=dict(bgcolor="white", font_size=13, font_family="sans-serif"),
+        title=dict(
+            text="電力会社・地域別 停電状況マップ",
+            font=dict(size=14, family="sans-serif", color="#0f172a"),
+            x=0.01, y=0.99, xanchor="left", yanchor="top",
+        ),
+    )
+    return fig
 
 
 def build_company_totals_html(df: pd.DataFrame) -> str:
@@ -1783,7 +1874,23 @@ if section == "realtime":
 
     map_col, alert_col = st.columns([1.45, 0.95], gap="medium")
     with map_col:
-        st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
+        fig_map = build_japan_map_fig(df_rt)
+        if fig_map is not None:
+            st.plotly_chart(fig_map, use_container_width=True,
+                            config={"displayModeBar": False})
+            st.markdown(
+                '<div class="map-legend" style="margin-top:-8px; justify-content:center;">'
+                '<span><i style="background:#d1fae5;border:1px solid #6ee7b7;"></i>停電なし</span>'
+                '<span><i style="background:#fde68a"></i>〜100軒</span>'
+                '<span><i style="background:#fbbf24"></i>〜1,000軒</span>'
+                '<span><i style="background:#ea580c"></i>〜10,000軒</span>'
+                '<span><i style="background:#dc2626"></i>10,001軒〜</span>'
+                '<span><i style="background:#94a3b8"></i>データなし</span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
 
     with alert_col:
         st.markdown(build_emergency_table_html(df_rt), unsafe_allow_html=True)
