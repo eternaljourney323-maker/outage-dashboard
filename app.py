@@ -466,23 +466,54 @@ def build_japan_map_fig(df: pd.DataFrame):
                 sum(c[1] for c in coords) / len(coords),
             )
 
-    # 停電エリア情報
+    # 停電軒数 → severity (1-4) と色
+    def _sev(count):
+        if count >= 10000: return 4
+        if count >= 1000:  return 3
+        if count >= 100:   return 2
+        return 1
+
+    # overlay色（半透明）/ 数字ラベル色
+    _SEV_OVERLAY = {
+        1: "rgba(253,224,71,0.70)",   # 黄（〜100軒）
+        2: "rgba(251,146,60,0.70)",   # 橙（〜1,000軒）
+        3: "rgba(239,68,68,0.70)",    # 赤（〜10,000軒）
+        4: "rgba(185,28,28,0.80)",    # 深赤（10,000軒〜）
+    }
+    _SEV_TEXT = {
+        1: "#713f12",
+        2: "#7c2d12",
+        3: "#7f1d1d",
+        4: "#450a0a",
+    }
+
+    # 停電エリア情報（severity付き）
     outage_df = df_map[
         (df_map["data_status"] == "取得済み") & (df_map["affected_customers"] > 0)
     ]
-    outage_prefs = [r["prefecture"] for _, r in outage_df.iterrows() if r["prefecture"] in centroids]
-    has_outages = len(outage_prefs) > 0
+    outage_rows = [
+        (r["prefecture"], int(r["affected_customers"]))
+        for _, r in outage_df.iterrows()
+        if r["prefecture"] in centroids
+    ]
+    has_outages = len(outage_rows) > 0
 
-    # trace 1: アラートオーバーレイ（停電エリアのみ・オレンジ、点滅）
-    alert_lons = [centroids[p][0] for p in outage_prefs]
-    alert_lats = [centroids[p][1] for p in outage_prefs]
+    # 離散カラースケール（severity 1-4 対応）
+    alert_colorscale = [
+        [0.000, _SEV_OVERLAY[1]], [0.249, _SEV_OVERLAY[1]],
+        [0.250, _SEV_OVERLAY[2]], [0.499, _SEV_OVERLAY[2]],
+        [0.500, _SEV_OVERLAY[3]], [0.749, _SEV_OVERLAY[3]],
+        [0.750, _SEV_OVERLAY[4]], [1.000, _SEV_OVERLAY[4]],
+    ]
+
+    # trace 1: アラートオーバーレイ（軒数に応じた色・点滅）
     alert_overlay = go.Choropleth(
         geojson=geojson,
         featureidkey="properties.nam_ja",
-        locations=outage_prefs,
-        z=[1.0] * len(outage_prefs),
-        colorscale=[[0, "rgba(249,115,22,0.55)"], [1, "rgba(249,115,22,0.55)"]],
-        zmin=0, zmax=1,
+        locations=[p for p, _ in outage_rows],
+        z=[_sev(c) for _, c in outage_rows],
+        colorscale=alert_colorscale,
+        zmin=1, zmax=4,
         showscale=False,
         marker_line_color="rgba(0,0,0,0)",
         marker_line_width=0,
@@ -501,21 +532,19 @@ def build_japan_map_fig(df: pd.DataFrame):
         hoverinfo="skip",
     )
 
-    # trace 3: 停電数ラベル（数字のみ・点滅）
-    count_lons, count_lats, count_texts = [], [], []
-    for _, row in outage_df.iterrows():
-        pref = row["prefecture"]
-        if pref not in centroids:
-            continue
+    # trace 3: 停電数ラベル（数字のみ・軒数に応じた色・点滅）
+    count_lons, count_lats, count_texts, count_colors = [], [], [], []
+    for pref, count in outage_rows:
         lon, lat = centroids[pref]
         count_lons.append(lon)
         count_lats.append(lat - 0.44)
-        count_texts.append(f"{int(row['affected_customers']):,}")
+        count_texts.append(f"{count:,}")
+        count_colors.append(_SEV_TEXT[_sev(count)])
 
     count_labels = go.Scattergeo(
         lon=count_lons, lat=count_lats, text=count_texts,
         mode="text",
-        textfont=dict(size=10, color="#7f1d1d", family="sans-serif"),
+        textfont=dict(size=10, color=count_colors, family="sans-serif"),
         showlegend=False,
         hoverinfo="skip",
         visible=has_outages,
