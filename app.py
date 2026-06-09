@@ -2083,23 +2083,56 @@ if section == "realtime":
                 full_html=True,
                 config={"displayModeBar": False, "responsive": True},
             )
-            _click_anim_js = f"""<script>
+            _inject = f"""
+<style>
+  .zoom-btn{{
+    width:32px;height:32px;border:1px solid #94a3b8;border-radius:6px;
+    background:rgba(255,255,255,0.92);cursor:pointer;
+    font-size:20px;font-weight:700;color:#334155;
+    box-shadow:0 1px 4px rgba(0,0,0,0.18);line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    transition:background 0.12s;
+  }}
+  .zoom-btn:hover{{background:rgba(241,245,249,0.97);}}
+</style>
+<div style="position:fixed;bottom:36px;right:12px;
+            display:flex;flex-direction:column;gap:5px;z-index:9999;">
+  <button class="zoom-btn" id="btn-zi" title="拡大">+</button>
+  <button class="zoom-btn" id="btn-zo" title="縮小">−</button>
+</div>
+<script>
 (function(){{
   var PREF_URL={_pref_url_js};
+
+  function zoomMap(factor){{
+    var gd=document.querySelector('.plotly-graph-div');
+    if(!gd||!gd.layout||!gd.layout.geo)return;
+    var g=gd.layout.geo;
+    var latR=(g.lataxis&&g.lataxis.range)||[23,46];
+    var lonR=(g.lonaxis&&g.lonaxis.range)||[122,149];
+    var latC=(latR[0]+latR[1])/2, lonC=(lonR[0]+lonR[1])/2;
+    var lats=Math.max(4,Math.min(28,(latR[1]-latR[0])*factor));
+    var lons=Math.max(5,Math.min(35,(lonR[1]-lonR[0])*factor));
+    Plotly.relayout(gd,{{
+      'geo.lataxis.range':[latC-lats/2,latC+lats/2],
+      'geo.lonaxis.range':[lonC-lons/2,lonC+lons/2]
+    }});
+  }}
+
+  document.getElementById('btn-zi').addEventListener('click',function(){{zoomMap(0.65);}});
+  document.getElementById('btn-zo').addEventListener('click',function(){{zoomMap(1/0.65);}});
+
   function init(){{
     var gd=document.querySelector('.plotly-graph-div');
     if(!gd||!gd._fullLayout){{setTimeout(init,200);return;}}
-    // クリック → 電力会社停電情報ページを新タブで開く
     gd.on('plotly_click',function(d){{
       if(!d.points||!d.points.length)return;
       var loc=d.points[0].location;
       if(loc&&PREF_URL[loc])window.open(PREF_URL[loc],'_blank','noopener,noreferrer');
     }});
-    // ホバー時にポインターカーソル
     var s=document.createElement('style');
     s.textContent='.js-plotly-plot .geo path{{cursor:pointer;}}';
     document.head.appendChild(s);
-    // 停電ありの場合のみ点滅アニメーション
     var fr=gd._transitionData&&gd._transitionData._frames;
     if(fr&&fr.length){{
       (function loop(){{
@@ -2114,7 +2147,7 @@ if section == "realtime":
   setTimeout(init,600);
 }})();
 </script>"""
-            _fig_html = _fig_html.replace("</body>", _click_anim_js + "</body>")
+            _fig_html = _fig_html.replace("</body>", _inject + "</body>")
             _components.html(_fig_html, height=630, scrolling=False)
         else:
             st.markdown(build_prefecture_tile_map_html(df_rt), unsafe_allow_html=True)
