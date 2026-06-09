@@ -1999,6 +1999,39 @@ with st.sidebar:
                  use_container_width=True, key="nav_news"):
         st.session_state["active_section"] = "news"
 
+    # ── 気象情報リンク ────────────────────────────────────
+    st.markdown(
+        '<div style="height:1px;background:#1e293b;margin:8px 0;"></div>'
+        '<div style="font-size:0.65rem;font-weight:700;color:#475569;'
+        'letter-spacing:0.08em;text-transform:uppercase;'
+        'padding:10px 16px 4px;">Weather Links</div>',
+        unsafe_allow_html=True,
+    )
+    _WEATHER_LINKS = [
+        ("🚨", "気象警報・注意報",   "JMA",  "#dc2626",
+         "https://www.jma.go.jp/bosai/warning/"),
+        ("⚡", "落雷ナウキャスト",   "JMA",  "#ca8a04",
+         "https://www.jma.go.jp/bosai/nowc/#elm=thunder"),
+        ("🌧️", "高解像度降水ナウキャスト", "JMA", "#2563eb",
+         "https://www.jma.go.jp/bosai/nowc/#elm=hrpns"),
+        ("💨", "強風・突風情報",     "tenki","#0891b2",
+         "https://tenki.jp/wind-graph/"),
+        ("🌩️", "雷・大雨（tenki）", "tenki","#7c3aed",
+         "https://tenki.jp/radar/"),
+        ("📡", "気象レーダー",       "JMA",  "#16a34a",
+         "https://www.jma.go.jp/bosai/nowc/#elm=hrpns&contents=nowcast&layer=hrpns"),
+    ]
+    _links_html = ""
+    for icon, label, badge, badge_color, url in _WEATHER_LINKS:
+        _links_html += (
+            f'<a class="weather-link" href="{url}" target="_blank" rel="noopener noreferrer">'
+            f'{icon} {label}'
+            f'<span class="wl-badge" style="background:{badge_color}22;color:{badge_color};">'
+            f'{badge}</span>'
+            f'</a>'
+        )
+    st.markdown(_links_html, unsafe_allow_html=True)
+
     # ── フッター ──────────────────────────────────────────
     st.markdown(
         '<div style="margin-top:16px;padding:10px 4px;'

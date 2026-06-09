@@ -205,6 +205,31 @@ section[data-testid="stSidebar"] .stButton > button:focus {
   outline: none !important;
 }
 
+/* 気象情報外部リンク（ナビボタンと同じ見た目） */
+.weather-link {
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 6px; border: 0;
+  background: transparent;
+  color: var(--sidebar-text) !important;
+  font-family: var(--font);
+  font-size: 0.82rem; font-weight: 500;
+  min-height: 2.2rem;
+  padding: 6px 14px;
+  margin: 1px 6px;
+  width: calc(100% - 12px);
+  text-decoration: none !important;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+  box-sizing: border-box;
+}
+.weather-link:hover {
+  background: rgba(255,255,255,.06);
+  color: var(--sidebar-text-hover) !important;
+}
+.weather-link .wl-badge {
+  font-size: 0.6rem; font-weight: 700; padding: 1px 5px;
+  border-radius: 4px; line-height: 1.4; flex-shrink: 0;
+}
+
 /* アクティブボタン（フォーカス後クリック状態） */
 section[data-testid="stSidebar"] .stButton > button:active {
   background: var(--sidebar-active-bg) !important;
