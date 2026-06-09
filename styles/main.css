@@ -455,24 +455,35 @@ section[data-testid="stSidebar"] .stButton > button:active {
 }
 
 /* ── 緊急度テーブル ─────────────────────────────────────────── */
-.emergency-table {
-  width: 100%; border-collapse: collapse; font-size: 0.78rem;
-}
-
-.emergency-table th {
+/* 緊急停電リスト（flex行・クリックリンク） */
+.emergency-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
   background: var(--surface-muted); color: var(--text-secondary);
-  font-weight: 700; text-align: left; padding: 9px 10px;
-  border-bottom: 1px solid var(--border); font-size: 0.72rem;
-  letter-spacing: .03em;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: .03em;
+  border-bottom: 1px solid var(--border);
 }
 
-.emergency-table td {
-  padding: 9px 10px; border-bottom: 1px solid var(--border-soft);
-  color: var(--text-secondary); vertical-align: middle; white-space: nowrap;
-}
+.emergency-list { width: 100%; }
 
-.emergency-table tr:hover td { background: var(--surface-muted); }
-.emergency-table tr:last-child td { border-bottom: none; }
+.emergency-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  text-decoration: none; color: inherit;
+  transition: background 0.12s;
+}
+.emergency-row:hover { background: var(--surface-muted); }
+.emergency-row:last-child { border-bottom: none; }
+
+.emergency-pref {
+  flex: 1; font-size: 0.78rem; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.emergency-count {
+  min-width: 72px; text-align: right;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-primary);
+}
 
 .severity-badge {
   display: inline-flex; align-items: center; justify-content: center;
@@ -795,12 +806,21 @@ a.tab-chip:hover:not(.active) { border-color: var(--accent); color: var(--accent
   gap: 6px;
 }
 
+.company-total-link {
+  display: block; text-decoration: none;
+}
+.company-total-link:hover .company-total-item {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+  transform: translateY(-1px);
+}
+
 .company-total-item {
   border-radius: 8px;
   padding: 7px 10px;
   display: flex;
   flex-direction: column;
   gap: 3px;
+  transition: box-shadow 0.15s, transform 0.15s;
 }
 
 .company-total-name {

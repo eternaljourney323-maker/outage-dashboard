@@ -563,11 +563,12 @@ def build_japan_map_fig(df: pd.DataFrame):
 
 
 def build_company_totals_html(df: pd.DataFrame) -> str:
-    """電力会社別 総停電軒数パネル"""
+    """電力会社別 総停電軒数パネル（クリックで各社停電情報ページへ）"""
     items = ""
     for company in _MAP_COMPANY_ORDER:
         bg, border, txt, _ = _MAP_COMPANY_STYLES.get(company, ("#f1f5f9", "#94a3b8", "#475569", ""))
         short = _short_company_name(company)
+        url = _COMPANY_URLS.get(company, "#")
         comp_df = df[df["data_source"] == company]
         all_ng = comp_df.empty or (comp_df["data_status"] == "取得不可").all()
         if all_ng:
@@ -591,10 +592,13 @@ def build_company_totals_html(df: pd.DataFrame) -> str:
                     f'{count:,} 軒</span>'
                 )
         items += (
+            f'<a class="company-total-link" href="{url}" target="_blank"'
+            f' rel="noopener noreferrer" title="{company} 停電情報ページへ">'
             f'<div class="company-total-item" style="background:{bg}; border:1px solid {border};">'
             f'<div class="company-total-name" style="color:{txt};">{short}</div>'
             f'{count_html}'
             f'</div>'
+            f'</a>'
         )
     return (
         '<div class="panel-card company-totals-panel">'
@@ -681,43 +685,52 @@ def build_prefecture_tile_map_html(df: pd.DataFrame) -> str:
 
 
 def build_emergency_table_html(df: pd.DataFrame) -> str:
-    """緊急度の高い停電一覧テーブル"""
+    """緊急度の高い停電一覧（クリックで各社停電情報ページへ）"""
     rows = df[df["affected_customers"] > 0].sort_values("affected_customers", ascending=False).head(10)
     if rows.empty:
         body = (
-            '<tr><td colspan="4" style="padding:26px; text-align:center; color:#16a34a;'
-            ' font-weight:700;">現在、緊急度の高い停電は確認されていません</td></tr>'
+            '<div style="padding:26px; text-align:center; color:#16a34a; font-weight:700;">'
+            '現在、緊急度の高い停電は確認されていません</div>'
         )
     else:
         body = ""
-        for idx, (_, r) in enumerate(rows.iterrows(), start=1):
+        for _, r in rows.iterrows():
             count = int(r["affected_customers"])
+            company = str(r.get("data_source", ""))
+            url = _COMPANY_URLS.get(company, "#")
             if count >= 10000:
                 sev, sev_bg = "非常に高い", "#dc2626"
             elif count >= 1000:
                 sev, sev_bg = "高い", "#ea580c"
             elif count >= 100:
                 sev, sev_bg = "やや高い", "#f59e0b"
-            elif count > 0:
-                sev, sev_bg = "中", "#fbbf24"
             else:
-                sev, sev_bg = "低", "#cbd5e1"
-            status = '<span class="status-pill danger">停電中</span>' if count > 0 else '<span class="status-pill normal">確認済</span>'
+                sev, sev_bg = "中", "#fbbf24"
+            status = '<span class="status-pill danger">停電中</span>'
             body += (
-                '<tr>'
-                f'<td><span class="severity-badge" style="background:{sev_bg};">{sev}</span></td>'
-                f'<td>{_html.escape(str(r["prefecture"]))}</td>'
-                f'<td style="text-align:right; font-weight:700;">{count:,} 軒</td>'
-                f'<td>{status}</td>'
-                '</tr>'
+                f'<a class="emergency-row" href="{url}" target="_blank"'
+                f' rel="noopener noreferrer"'
+                f' title="{_html.escape(company)} 停電情報ページへ">'
+                f'<span class="severity-badge" style="background:{sev_bg}; flex-shrink:0;">{sev}</span>'
+                f'<span class="emergency-pref">{_html.escape(str(r["prefecture"]))}</span>'
+                f'<span class="emergency-count">{count:,} 軒</span>'
+                f'{status}'
+                f'</a>'
             )
+    header = (
+        '<div class="emergency-header">'
+        '<span style="min-width:74px;">緊急度</span>'
+        '<span style="flex:1;">エリア</span>'
+        '<span style="min-width:72px;text-align:right;">停電軒数</span>'
+        '<span>状況</span>'
+        '</div>'
+    )
     return (
         '<div class="panel-card emergency-panel">'
         '<div class="panel-title-row"><div class="panel-title">緊急度の高い停電（上位10件）</div></div>'
-        '<table class="emergency-table">'
-        '<thead><tr><th>緊急度</th><th>エリア</th><th>停電軒数</th><th>状況</th></tr></thead>'
-        f'<tbody>{body}</tbody></table>'
-        '<div style="color:#64748b; font-size:.72rem; padding-top:8px;">※停電軒数は各社公式サイト取得値です</div>'
+        f'{header}'
+        f'<div class="emergency-list">{body}</div>'
+        '<div style="color:#64748b; font-size:.72rem; padding-top:8px;">※クリックで各社停電情報ページへ</div>'
         '</div>'
     )
 
