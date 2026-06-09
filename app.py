@@ -753,7 +753,6 @@ def _short_company_name(name: str) -> str:
     return (
         name.replace("電力ネットワーク", "電力NW")
         .replace("パワーグリッド", "PG")
-        .replace("送配電", "")
     )
 
 
