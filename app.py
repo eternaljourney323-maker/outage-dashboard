@@ -2118,20 +2118,34 @@ if section == "realtime":
             )
             _inject = f"""
 <style>
-  .zoom-btn{{
+  .map-btn{{
     width:32px;height:32px;border:1px solid #94a3b8;border-radius:6px;
     background:rgba(255,255,255,0.92);cursor:pointer;
-    font-size:20px;font-weight:700;color:#334155;
+    font-size:16px;font-weight:700;color:#334155;
     box-shadow:0 1px 4px rgba(0,0,0,0.18);line-height:1;
     display:flex;align-items:center;justify-content:center;
     transition:background 0.12s;
   }}
-  .zoom-btn:hover{{background:rgba(241,245,249,0.97);}}
+  .map-btn:hover{{background:rgba(241,245,249,0.97);}}
+  .map-btn.blank{{background:transparent;border:none;box-shadow:none;pointer-events:none;}}
 </style>
 <div style="position:fixed;bottom:36px;right:12px;
-            display:flex;flex-direction:column;gap:5px;z-index:9999;">
-  <button class="zoom-btn" id="btn-zi" title="拡大">+</button>
-  <button class="zoom-btn" id="btn-zo" title="縮小">−</button>
+            display:grid;grid-template-columns:32px 32px 32px;gap:4px;z-index:9999;">
+  <div class="map-btn blank"></div>
+  <button class="map-btn" id="btn-up"    title="上へ">▲</button>
+  <div class="map-btn blank"></div>
+  <button class="map-btn" id="btn-left"  title="左へ">◀</button>
+  <div class="map-btn blank"></div>
+  <button class="map-btn" id="btn-right" title="右へ">▶</button>
+  <div class="map-btn blank"></div>
+  <button class="map-btn" id="btn-down"  title="下へ">▼</button>
+  <div class="map-btn blank"></div>
+  <div class="map-btn blank"></div>
+  <button class="map-btn" id="btn-zi"    title="拡大" style="font-size:20px;">+</button>
+  <div class="map-btn blank"></div>
+  <div class="map-btn blank"></div>
+  <button class="map-btn" id="btn-zo"    title="縮小" style="font-size:20px;">−</button>
+  <div class="map-btn blank"></div>
 </div>
 <script>
 (function(){{
@@ -2152,8 +2166,26 @@ if section == "realtime":
     }});
   }}
 
+  function panMap(dlat, dlon){{
+    var gd=document.querySelector('.plotly-graph-div');
+    if(!gd||!gd.layout||!gd.layout.geo)return;
+    var g=gd.layout.geo;
+    var latR=(g.lataxis&&g.lataxis.range)||[23,46];
+    var lonR=(g.lonaxis&&g.lonaxis.range)||[122,149];
+    var latSpan=latR[1]-latR[0], lonSpan=lonR[1]-lonR[0];
+    var latShift=latSpan*dlat, lonShift=lonSpan*dlon;
+    Plotly.relayout(gd,{{
+      'geo.lataxis.range':[latR[0]+latShift, latR[1]+latShift],
+      'geo.lonaxis.range':[lonR[0]+lonShift, lonR[1]+lonShift]
+    }});
+  }}
+
   document.getElementById('btn-zi').addEventListener('click',function(){{zoomMap(0.65);}});
   document.getElementById('btn-zo').addEventListener('click',function(){{zoomMap(1/0.65);}});
+  document.getElementById('btn-up').addEventListener('click',function(){{panMap( 0.3, 0);}});
+  document.getElementById('btn-down').addEventListener('click',function(){{panMap(-0.3, 0);}});
+  document.getElementById('btn-left').addEventListener('click',function(){{panMap(0,-0.3);}});
+  document.getElementById('btn-right').addEventListener('click',function(){{panMap(0, 0.3);}});
 
   function init(){{
     var gd=document.querySelector('.plotly-graph-div');
