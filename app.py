@@ -437,19 +437,19 @@ def build_japan_map_fig(df: pd.DataFrame):
         hoverinfo="text",
     )
 
-    # 都道府県名ラベル（セントロイド近似 + 手動補正）
+    # セントロイド算出（名前ラベル・軒数ラベル共用）
     def _bbox_area(poly):
         ring = poly[0]
         xs = [c[0] for c in ring]
         ys = [c[1] for c in ring]
         return (max(xs) - min(xs)) * (max(ys) - min(ys))
 
-    lons, lats, texts = [], [], []
+    centroids = {}  # nam_ja -> (lon, lat)
     for feature in geojson["features"]:
         name = feature["properties"]["nam_ja"]
         geom = feature["geometry"]
         if name in _PREF_LABEL_POS_OVERRIDE:
-            lon, lat = _PREF_LABEL_POS_OVERRIDE[name]
+            centroids[name] = _PREF_LABEL_POS_OVERRIDE[name]
         else:
             if geom["type"] == "Polygon":
                 coords = geom["coordinates"][0]
@@ -459,21 +459,61 @@ def build_japan_map_fig(df: pd.DataFrame):
                 continue
             if not coords:
                 continue
-            lon = sum(c[0] for c in coords) / len(coords)
-            lat = sum(c[1] for c in coords) / len(coords)
-        lons.append(lon)
-        lats.append(lat)
-        texts.append(_pref_short_label(name))
+            centroids[name] = (
+                sum(c[0] for c in coords) / len(coords),
+                sum(c[1] for c in coords) / len(coords),
+            )
+
+    # 都道府県名ラベル
+    name_lons, name_lats, name_texts = [], [], []
+    for name, (lon, lat) in centroids.items():
+        name_lons.append(lon)
+        name_lats.append(lat)
+        name_texts.append(_pref_short_label(name))
 
     labels = go.Scattergeo(
-        lon=lons, lat=lats, text=texts,
+        lon=name_lons, lat=name_lats, text=name_texts,
         mode="text",
-        textfont=dict(size=8, color="#1e293b", family="sans-serif"),
+        textfont=dict(size=8, color="#334155", family="sans-serif"),
         showlegend=False,
         hoverinfo="skip",
     )
 
-    fig = go.Figure(data=[choropleth, labels])
+    # 停電軒数ラベル（停電ありの都道府県のみ・都道府県名の下に強調表示）
+    outage_df = df_map[
+        (df_map["data_status"] == "取得済み") & (df_map["affected_customers"] > 0)
+    ]
+    count_lons, count_lats, count_texts, count_colors = [], [], [], []
+    for _, row in outage_df.iterrows():
+        pref = row["prefecture"]
+        count = int(row["affected_customers"])
+        if pref not in centroids:
+            continue
+        lon, lat = centroids[pref]
+        count_lons.append(lon)
+        count_lats.append(lat - 0.42)  # 都道府県名の下に配置
+        if count >= 10000:
+            count_texts.append(f"{count:,}軒")
+            count_colors.append("#7f1d1d")
+        elif count >= 1000:
+            count_texts.append(f"{count:,}軒")
+            count_colors.append("#9a3412")
+        elif count >= 100:
+            count_texts.append(f"{count}軒")
+            count_colors.append("#92400e")
+        else:
+            count_texts.append(f"{count}軒")
+            count_colors.append("#78350f")
+
+    count_labels = go.Scattergeo(
+        lon=count_lons, lat=count_lats, text=count_texts,
+        mode="text",
+        textfont=dict(size=9, color=count_colors, family="sans-serif"),
+        showlegend=False,
+        hoverinfo="skip",
+    )
+
+    fig = go.Figure(data=[choropleth, labels, count_labels])
     fig.update_geos(
         visible=True,
         showocean=True,
