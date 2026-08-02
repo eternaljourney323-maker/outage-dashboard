@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-REPO_DIR="/Users/kt/Cursor/work/dashboard-web/outage-dashboard"
+REPO_DIR="/Users/kt/src/outage-dashboard"
 WORKTREE_DIR="/tmp/chubu-cache-wt"
 CACHE_BRANCH="data-cache"
 PYTHON="python3"

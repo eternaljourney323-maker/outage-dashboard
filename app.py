@@ -379,6 +379,38 @@ def load_jma_radar_layer() -> Optional[dict]:
         return None
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def load_jma_lightning_layer() -> Optional[dict]:
+    """気象庁雷ナウキャストの最新タイル情報。"""
+    try:
+        response = _req.get(_JMA_NOWC_TARGETS_URL, timeout=12)
+        response.raise_for_status()
+        targets = response.json()
+        latest = next(
+            item for item in targets
+            if "thns" in item.get("elements", [])
+        )
+        basetime = str(latest["basetime"])
+        validtime = str(latest["validtime"])
+        observed_utc = _dt.datetime.strptime(validtime, "%Y%m%d%H%M%S").replace(
+            tzinfo=_dt.timezone.utc
+        )
+        observed_jst = observed_utc.astimezone(
+            _dt.timezone(_dt.timedelta(hours=9))
+        )
+        return {
+            "tile_url": (
+                "https://www.jma.go.jp/bosai/jmatile/data/nowc/"
+                f"{basetime}/none/{validtime}/surf/thns/"
+                "{z}/{x}/{y}.png"
+            ),
+            "observed_at": observed_jst.strftime("%m/%d %H:%M"),
+        }
+    except Exception as exc:
+        logger.warning("気象庁雷ナウキャスト取得失敗: %s", exc)
+        return None
+
+
 def _normalize_longitude(value: float) -> float:
     """0〜360度系の経度をPlotly用の-180〜180度系へ変換。"""
     return value - 360 if value > 180 else value
@@ -760,8 +792,9 @@ def build_japan_weather_map_fig(
     df: pd.DataFrame,
     radar_layer: Optional[dict] = None,
     typhoons: Optional[list[dict]] = None,
+    lightning_layer: Optional[dict] = None,
 ):
-    """停電情報に雨雲レーダー・台風進路を重ねられる日本地図。"""
+    """停電情報に雨雲レーダー・雷ナウキャスト・台風進路を重ねられる日本地図。"""
     geojson = _fetch_japan_geojson()
     if geojson is None:
         return None
@@ -864,7 +897,7 @@ def build_japan_weather_map_fig(
         showscale=False,
         marker_line_color="rgba(255,255,255,0.9)",
         marker_line_width=0.8,
-        marker_opacity=0.48 if radar_layer else 0.72,
+        marker_opacity=0.48 if (radar_layer or lightning_layer) else 0.72,
         hovertext=df_map["hover"].tolist(),
         hoverinfo="text",
     )
@@ -1009,6 +1042,13 @@ def build_japan_weather_map_fig(
             source=[radar_layer["tile_url"]],
             below="traces",
             opacity=0.68,
+        ))
+    if lightning_layer:
+        map_layers.append(dict(
+            sourcetype="raster",
+            source=[lightning_layer["tile_url"]],
+            below="traces",
+            opacity=0.75,
         ))
 
     fig.update_layout(
@@ -2525,7 +2565,7 @@ if section == "realtime":
 
     map_col, alert_col = st.columns([1.45, 0.95], gap="medium")
     with map_col:
-        _overlay_col1, _overlay_col2 = st.columns(2)
+        _overlay_col1, _overlay_col2, _overlay_col3 = st.columns(3)
         with _overlay_col1:
             show_radar = st.checkbox(
                 "🌧️ 雨雲レーダー",
@@ -2540,13 +2580,22 @@ if section == "realtime":
                 key="map_show_typhoon",
                 help="気象庁が発表中の台風・熱帯低気圧の進路と予報円を表示します。",
             )
+        with _overlay_col3:
+            show_lightning = st.checkbox(
+                "⚡ 落雷ナウキャスト",
+                value=False,
+                key="map_show_lightning",
+                help="気象庁の雷ナウキャスト（落雷位置・雷雲の強度）を重ねて表示します。",
+            )
 
         radar_layer = load_jma_radar_layer() if show_radar else None
         typhoon_tracks = load_jma_typhoon_tracks() if show_typhoon else []
+        lightning_layer = load_jma_lightning_layer() if show_lightning else None
         fig_map = build_japan_weather_map_fig(
             df_rt,
             radar_layer=radar_layer,
             typhoons=typhoon_tracks,
+            lightning_layer=lightning_layer,
         )
         if fig_map is not None:
             _legend_items = "".join(
@@ -2580,6 +2629,13 @@ if section == "realtime":
                     )
                 else:
                     _weather_status.append("🌀 現在、表示対象の台風情報はありません")
+            if show_lightning:
+                if lightning_layer:
+                    _weather_status.append(
+                        f"⚡ 落雷 {lightning_layer['observed_at']}現在（気象庁）"
+                    )
+                else:
+                    _weather_status.append("⚡ 落雷データを取得できません")
             if _weather_status:
                 st.caption("　|　".join(_weather_status))
             # 都道府県 → 電力会社URLのマッピング（クリックナビ用）
@@ -2675,8 +2731,9 @@ if section == "realtime":
       var blinkTimer=setInterval(function(){{
         if(!document.body.contains(gd)){{clearInterval(blinkTimer);return;}}
         blinkOn=!blinkOn;
-        Plotly.restyle(gd,{{opacity:blinkOn?1:0.38}},[3,4]);
-      }},650);
+        Plotly.restyle(gd,{{opacity:blinkOn?0.78:0.15}},[1]);
+        Plotly.restyle(gd,{{opacity:blinkOn?1:0.2}},[3,4]);
+      }},700);
     }}
   }}
   setTimeout(init,600);
