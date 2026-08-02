@@ -897,7 +897,7 @@ def build_japan_weather_map_fig(
         showscale=False,
         marker_line_color="rgba(255,255,255,0.9)",
         marker_line_width=0.8,
-        marker_opacity=0.48 if (radar_layer or lightning_layer) else 0.72,
+        marker_opacity=0.55 if (radar_layer or lightning_layer) else 0.78,
         hovertext=df_map["hover"].tolist(),
         hoverinfo="text",
     )
@@ -930,14 +930,17 @@ def build_japan_weather_map_fig(
     for pref, count in outage_rows:
         lon, lat = centroids[pref]
         count_lons.append(lon)
-        count_lats.append(lat - 0.35)
+        count_lats.append(lat - 0.2)
         count_text = f"{count:,}"
         count_texts.append(count_text)
-        count_marker_sizes.append(max(24, 10 + len(count_text) * 4))
-    count_badge_trace = go.Scattermapbox(
+        count_marker_sizes.append(max(36, 18 + len(count_text) * 7))
+    count_trace = go.Scattermapbox(
         lon=count_lons,
         lat=count_lats,
-        mode="markers",
+        text=count_texts,
+        mode="markers+text",
+        textposition="middle center",
+        textfont=dict(size=13, color="#ffffff", family="sans-serif"),
         marker=dict(
             size=count_marker_sizes,
             color="#991b1b",
@@ -947,23 +950,12 @@ def build_japan_weather_map_fig(
         hoverinfo="skip",
         visible=has_outages,
     )
-    count_text_trace = go.Scattermapbox(
-        lon=count_lons,
-        lat=count_lats,
-        text=count_texts,
-        mode="text",
-        textfont=dict(size=11, color="#ffffff", family="sans-serif"),
-        showlegend=False,
-        hoverinfo="skip",
-        visible=has_outages,
-    )
 
     fig = go.Figure(data=[
-        base_trace,
-        alert_trace,
-        name_trace,
-        count_badge_trace,
-        count_text_trace,
+        base_trace,   # 0
+        alert_trace,  # 1
+        name_trace,   # 2
+        count_trace,  # 3 (badge + number combined)
     ])
 
     for typhoon in typhoons or []:
@@ -1028,14 +1020,7 @@ def build_japan_weather_map_fig(
                 showlegend=False,
             ))
 
-    map_layers = [
-        dict(
-            sourcetype="raster",
-            source=[_JMA_BASE_TILE_URL],
-            below="traces",
-            opacity=1,
-        )
-    ]
+    map_layers = []
     if radar_layer:
         map_layers.append(dict(
             sourcetype="raster",
@@ -1053,14 +1038,14 @@ def build_japan_weather_map_fig(
 
     fig.update_layout(
         mapbox=dict(
-            style="white-bg",
+            style="carto-positron",
             layers=map_layers,
             center=dict(lat=35.0, lon=136.5),
             zoom=3.15,
         ),
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        paper_bgcolor="#7db9d4",
-        plot_bgcolor="#7db9d4",
+        paper_bgcolor="#dce9f5",
+        plot_bgcolor="#dce9f5",
         height=600,
         showlegend=False,
         hoverlabel=dict(bgcolor="white", font_size=13, font_family="sans-serif"),
@@ -2732,7 +2717,7 @@ if section == "realtime":
         if(!document.body.contains(gd)){{clearInterval(blinkTimer);return;}}
         blinkOn=!blinkOn;
         Plotly.restyle(gd,{{opacity:blinkOn?0.78:0.15}},[1]);
-        Plotly.restyle(gd,{{opacity:blinkOn?1:0.2}},[3,4]);
+        Plotly.restyle(gd,{{opacity:blinkOn?1:0.15}},[3]);
       }},700);
     }}
   }}
