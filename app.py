@@ -1024,28 +1024,20 @@ def build_japan_weather_map_fig(
             opacity=0.75,
         ))
 
-    _ocean_layer = dict(
-        sourcetype="geojson",
-        source={
-            "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[
-                        [-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]
-                    ]],
-                },
-            }],
-        },
-        type="fill",
-        color="#aad3df",
-        below="",
-    )
+    fig.data = (go.Scattermapbox(
+        lat=[-85, -85, 85, 85, -85],
+        lon=[-180, 180, 180, -180, -180],
+        mode="none",
+        fill="toself",
+        fillcolor="#aad3df",
+        hoverinfo="skip",
+        showlegend=False,
+    ),) + tuple(fig.data)
+
     fig.update_layout(
         mapbox=dict(
             style="white-bg",
-            layers=[_ocean_layer] + map_layers,
+            layers=map_layers,
             center=dict(lat=35.0, lon=136.5),
             zoom=3.15,
         ),
