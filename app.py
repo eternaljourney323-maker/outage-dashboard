@@ -2,6 +2,7 @@ import html as _html
 import xml.etree.ElementTree as ET
 import datetime as _dt
 import logging
+import math as _math
 from typing import Optional, List
 import streamlit as st
 import streamlit.components.v1 as _components
@@ -336,6 +337,142 @@ _JAPAN_GEOJSON_URL = (
     "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
 )
 
+_JMA_NOWC_TARGETS_URL = (
+    "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json"
+)
+_JMA_TYPHOON_TARGETS_URL = (
+    "https://www.jma.go.jp/bosai/typhoon/data/targetTc.json"
+)
+_JMA_TYPHOON_DATA_BASE = "https://www.jma.go.jp/bosai/typhoon/data"
+_JMA_BASE_TILE_URL = "https://www.jma.go.jp/tile/jma/base/{z}/{x}/{y}.png"
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_jma_radar_layer() -> Optional[dict]:
+    """気象庁高解像度降水ナウキャストの最新タイル情報。"""
+    try:
+        response = _req.get(_JMA_NOWC_TARGETS_URL, timeout=12)
+        response.raise_for_status()
+        targets = response.json()
+        latest = next(
+            item for item in targets
+            if "hrpns" in item.get("elements", [])
+        )
+        basetime = str(latest["basetime"])
+        validtime = str(latest["validtime"])
+        observed_utc = _dt.datetime.strptime(validtime, "%Y%m%d%H%M%S").replace(
+            tzinfo=_dt.timezone.utc
+        )
+        observed_jst = observed_utc.astimezone(
+            _dt.timezone(_dt.timedelta(hours=9))
+        )
+        return {
+            "tile_url": (
+                "https://www.jma.go.jp/bosai/jmatile/data/nowc/"
+                f"{basetime}/none/{validtime}/surf/hrpns/"
+                "{z}/{x}/{y}.png"
+            ),
+            "observed_at": observed_jst.strftime("%m/%d %H:%M"),
+        }
+    except Exception as exc:
+        logger.warning("気象庁雨雲レーダー取得失敗: %s", exc)
+        return None
+
+
+def _normalize_longitude(value: float) -> float:
+    """0〜360度系の経度をPlotly用の-180〜180度系へ変換。"""
+    return value - 360 if value > 180 else value
+
+
+def _normalize_typhoon_forecast(
+    target: dict,
+    forecast: list[dict],
+) -> Optional[dict]:
+    """気象庁の台風進路JSONを地図表示用に正規化。"""
+    title = next((row for row in forecast if row.get("part") == "title"), {})
+    points = [row for row in forecast if isinstance(row.get("center"), list)]
+    if not points:
+        return None
+
+    current = next((row for row in points if row.get("advancedHours") == 0), points[0])
+    track = current.get("track", {})
+    history_raw = track.get("preTyphoon", []) + track.get("typhoon", [])
+    history: list[list[float]] = []
+    for coords in history_raw:
+        if not isinstance(coords, list) or len(coords) < 2:
+            continue
+        normalized = [float(coords[0]), _normalize_longitude(float(coords[1]))]
+        if not history or history[-1] != normalized:
+            history.append(normalized)
+
+    forecast_points = []
+    for row in points:
+        center = row.get("center", [])
+        if len(center) < 2:
+            continue
+        validtime = row.get("validtime", {}).get("JST", "")
+        try:
+            valid_label = _dt.datetime.fromisoformat(validtime).strftime("%m/%d %H:%M")
+        except (TypeError, ValueError):
+            valid_label = validtime or "時刻不明"
+        probability = row.get("probabilityCircle") or {}
+        forecast_points.append({
+            "lat": float(center[0]),
+            "lon": _normalize_longitude(float(center[1])),
+            "hours": int(row.get("advancedHours", 0)),
+            "valid_at": valid_label,
+            "radius_m": float(probability.get("radius", 0) or 0),
+        })
+
+    name = title.get("name", {}).get("jp") or ""
+    number = str(title.get("typhoonNumber") or target.get("typhoonNumber") or "")
+    category = str(target.get("category") or "")
+    if number.isdigit():
+        display_name = f"台風第{int(number[-2:])}号"
+    elif category == "TD":
+        display_name = "熱帯低気圧"
+    else:
+        display_name = "熱帯低気圧"
+    if name:
+        display_name += f" {name}"
+
+    return {
+        "id": str(target.get("tropicalCyclone", "")),
+        "name": display_name,
+        "history": history,
+        "forecast": forecast_points,
+    }
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_jma_typhoon_tracks() -> Optional[list[dict]]:
+    """気象庁が発表中の台風・熱帯低気圧の進路。"""
+    try:
+        response = _req.get(_JMA_TYPHOON_TARGETS_URL, timeout=12)
+        response.raise_for_status()
+        targets = response.json()
+    except Exception as exc:
+        logger.warning("気象庁台風一覧取得失敗: %s", exc)
+        return None
+
+    tracks = []
+    for target in targets:
+        cyclone_id = str(target.get("tropicalCyclone", ""))
+        if not cyclone_id:
+            continue
+        try:
+            response = _req.get(
+                f"{_JMA_TYPHOON_DATA_BASE}/{cyclone_id}/forecast.json",
+                timeout=12,
+            )
+            response.raise_for_status()
+            normalized = _normalize_typhoon_forecast(target, response.json())
+            if normalized:
+                tracks.append(normalized)
+        except Exception as exc:
+            logger.warning("気象庁台風進路取得失敗 (%s): %s", cyclone_id, exc)
+    return tracks
+
 _MAP_LEVEL_NUM = {
     "データ未取得":   0,
     "停電なし":       1,
@@ -533,7 +670,7 @@ def build_japan_map_fig(df: pd.DataFrame):
     )
 
     # trace 3: 停電数ラベル（数字のみ・軒数に応じた色・点滅）
-    count_lons, count_lats, count_texts, count_colors = [], [], [], []
+    count_lons, count_lats, count_texts = [], [], []
     for pref, count in outage_rows:
         lon, lat = centroids[pref]
         count_lons.append(lon)
@@ -587,6 +724,306 @@ def build_japan_map_fig(df: pd.DataFrame):
         plot_bgcolor="#7db9d4",
         height=600,
         hoverlabel=dict(bgcolor="white", font_size=13, font_family="sans-serif"),
+    )
+    return fig
+
+
+def _circle_polygon(
+    lat: float,
+    lon: float,
+    radius_m: float,
+    vertices: int = 72,
+) -> tuple[list[float], list[float]]:
+    """緯度・経度と半径から台風予報円の多角形座標を生成。"""
+    earth_radius_m = 6_371_000
+    angular_distance = radius_m / earth_radius_m
+    lat1 = _math.radians(lat)
+    lon1 = _math.radians(lon)
+    lats: list[float] = []
+    lons: list[float] = []
+    for index in range(vertices + 1):
+        bearing = 2 * _math.pi * index / vertices
+        lat2 = _math.asin(
+            _math.sin(lat1) * _math.cos(angular_distance)
+            + _math.cos(lat1) * _math.sin(angular_distance) * _math.cos(bearing)
+        )
+        lon2 = lon1 + _math.atan2(
+            _math.sin(bearing) * _math.sin(angular_distance) * _math.cos(lat1),
+            _math.cos(angular_distance) - _math.sin(lat1) * _math.sin(lat2),
+        )
+        lats.append(_math.degrees(lat2))
+        lons.append(_normalize_longitude(_math.degrees(lon2)))
+    return lats, lons
+
+
+def build_japan_weather_map_fig(
+    df: pd.DataFrame,
+    radar_layer: Optional[dict] = None,
+    typhoons: Optional[list[dict]] = None,
+):
+    """停電情報に雨雲レーダー・台風進路を重ねられる日本地図。"""
+    geojson = _fetch_japan_geojson()
+    if geojson is None:
+        return None
+
+    company_to_idx = {company: i for i, company in enumerate(_MAP_COMPANY_ORDER)}
+    company_colors = [_MAP_COMPANY_STYLES[c][0] for c in _MAP_COMPANY_ORDER]
+    n_companies = len(company_colors)
+    color_scale = []
+    for index, color in enumerate(company_colors):
+        start = index / n_companies
+        end = (index + 1) / n_companies
+        color_scale.append([start, color])
+        if index < n_companies - 1:
+            color_scale.append([end - 1e-5, color])
+    color_scale.append([1.0, company_colors[-1]])
+
+    df_map = df.copy()
+    df_map["company_idx"] = (
+        df_map["data_source"].map(company_to_idx).fillna(0).astype(int)
+    )
+    df_map["hover"] = df_map.apply(
+        lambda row: (
+            f"<b>{row['prefecture']}</b><br>{row['data_source']}<br>{row['outage_level']}"
+            + (
+                f"<br><b>{int(row['affected_customers']):,}軒</b>"
+                if row.get("data_status") == "取得済み"
+                and row["affected_customers"] > 0
+                else ""
+            )
+        ),
+        axis=1,
+    )
+
+    def _bbox_area(poly):
+        ring = poly[0]
+        xs = [coords[0] for coords in ring]
+        ys = [coords[1] for coords in ring]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+
+    centroids = {}
+    for feature in geojson["features"]:
+        name = feature["properties"]["nam_ja"]
+        geometry = feature["geometry"]
+        if name in _PREF_LABEL_POS_OVERRIDE:
+            centroids[name] = _PREF_LABEL_POS_OVERRIDE[name]
+            continue
+        if geometry["type"] == "Polygon":
+            coords = geometry["coordinates"][0]
+        elif geometry["type"] == "MultiPolygon":
+            coords = max(geometry["coordinates"], key=_bbox_area)[0]
+        else:
+            continue
+        if coords:
+            centroids[name] = (
+                sum(point[0] for point in coords) / len(coords),
+                sum(point[1] for point in coords) / len(coords),
+            )
+
+    def _severity(count: int) -> int:
+        if count >= 10000:
+            return 4
+        if count >= 1000:
+            return 3
+        if count >= 100:
+            return 2
+        return 1
+
+    severity_colors = {
+        1: "#fde047",
+        2: "#fb923c",
+        3: "#ef4444",
+        4: "#b91c1c",
+    }
+    outage_df = df_map[
+        (df_map["data_status"] == "取得済み")
+        & (df_map["affected_customers"] > 0)
+    ]
+    outage_rows = [
+        (row["prefecture"], int(row["affected_customers"]))
+        for _, row in outage_df.iterrows()
+        if row["prefecture"] in centroids
+    ]
+    has_outages = bool(outage_rows)
+
+    alert_colorscale = [
+        [0.000, severity_colors[1]], [0.249, severity_colors[1]],
+        [0.250, severity_colors[2]], [0.499, severity_colors[2]],
+        [0.500, severity_colors[3]], [0.749, severity_colors[3]],
+        [0.750, severity_colors[4]], [1.000, severity_colors[4]],
+    ]
+
+    base_trace = go.Choroplethmapbox(
+        geojson=geojson,
+        featureidkey="properties.nam_ja",
+        locations=df_map["prefecture"].tolist(),
+        z=df_map["company_idx"].tolist(),
+        colorscale=color_scale,
+        zmin=0,
+        zmax=n_companies,
+        showscale=False,
+        marker_line_color="rgba(255,255,255,0.9)",
+        marker_line_width=0.8,
+        marker_opacity=0.48 if radar_layer else 0.72,
+        hovertext=df_map["hover"].tolist(),
+        hoverinfo="text",
+    )
+    alert_trace = go.Choroplethmapbox(
+        geojson=geojson,
+        featureidkey="properties.nam_ja",
+        locations=[pref for pref, _ in outage_rows],
+        z=[_severity(count) for _, count in outage_rows],
+        colorscale=alert_colorscale,
+        zmin=1,
+        zmax=4,
+        showscale=False,
+        marker_line_color="rgba(0,0,0,0)",
+        marker_line_width=0,
+        marker_opacity=0.78,
+        hoverinfo="skip",
+        visible=has_outages,
+    )
+    name_trace = go.Scattermapbox(
+        lon=[centroids[name][0] for name in centroids],
+        lat=[centroids[name][1] for name in centroids],
+        text=[_pref_short_label(name) for name in centroids],
+        mode="text",
+        textfont=dict(size=8, color="#334155", family="sans-serif"),
+        showlegend=False,
+        hoverinfo="skip",
+    )
+
+    count_lons, count_lats, count_texts, count_colors = [], [], [], []
+    for pref, count in outage_rows:
+        lon, lat = centroids[pref]
+        count_lons.append(lon)
+        count_lats.append(lat - 0.35)
+        count_texts.append(f"{count:,}")
+    count_trace = go.Scattermapbox(
+        lon=count_lons,
+        lat=count_lats,
+        text=count_texts,
+        mode="text",
+        textfont=dict(size=10, color="#7f1d1d", family="sans-serif"),
+        showlegend=False,
+        hoverinfo="skip",
+        visible=has_outages,
+    )
+
+    fig = go.Figure(data=[base_trace, alert_trace, name_trace, count_trace])
+
+    for typhoon in typhoons or []:
+        history = typhoon.get("history", [])
+        forecast = typhoon.get("forecast", [])
+        if len(history) >= 2:
+            fig.add_trace(go.Scattermapbox(
+                lat=[point[0] for point in history],
+                lon=[point[1] for point in history],
+                mode="lines",
+                line=dict(color="#7c3aed", width=3),
+                hoverinfo="skip",
+                showlegend=False,
+            ))
+
+        for point in forecast:
+            if point["radius_m"] <= 0:
+                continue
+            circle_lats, circle_lons = _circle_polygon(
+                point["lat"], point["lon"], point["radius_m"]
+            )
+            fig.add_trace(go.Scattermapbox(
+                lat=circle_lats,
+                lon=circle_lons,
+                mode="lines",
+                fill="toself",
+                fillcolor="rgba(220,38,38,0.10)",
+                line=dict(color="rgba(220,38,38,0.55)", width=1),
+                hoverinfo="skip",
+                showlegend=False,
+            ))
+
+        if forecast:
+            hover_text = [
+                f"<b>{typhoon['name']}</b><br>"
+                f"{point['valid_at']}<br>"
+                + ("実況" if point["hours"] == 0 else f"{point['hours']}時間後予報")
+                for point in forecast
+            ]
+            fig.add_trace(go.Scattermapbox(
+                lat=[point["lat"] for point in forecast],
+                lon=[point["lon"] for point in forecast],
+                mode="lines+markers",
+                line=dict(color="#dc2626", width=3),
+                marker=dict(
+                    size=[12 if point["hours"] == 0 else 8 for point in forecast],
+                    color=["#7c3aed" if point["hours"] == 0 else "#dc2626" for point in forecast],
+                ),
+                text=hover_text,
+                hovertemplate="%{text}<extra></extra>",
+                showlegend=False,
+            ))
+            current = forecast[0]
+            fig.add_trace(go.Scattermapbox(
+                lat=[current["lat"]],
+                lon=[current["lon"]],
+                text=[f"🌀 {typhoon['name']}"],
+                mode="text",
+                textposition="top center",
+                textfont=dict(size=12, color="#6d28d9", family="sans-serif"),
+                hoverinfo="skip",
+                showlegend=False,
+            ))
+
+    map_layers = [
+        dict(
+            sourcetype="raster",
+            source=[_JMA_BASE_TILE_URL],
+            below="traces",
+            opacity=1,
+        )
+    ]
+    if radar_layer:
+        map_layers.append(dict(
+            sourcetype="raster",
+            source=[radar_layer["tile_url"]],
+            below="traces",
+            opacity=0.68,
+        ))
+
+    if has_outages:
+        fig.frames = [
+            go.Frame(
+                name="on",
+                data=[
+                    go.Choroplethmapbox(visible=True),
+                    go.Scattermapbox(visible=True),
+                ],
+                traces=[1, 3],
+            ),
+            go.Frame(
+                name="off",
+                data=[
+                    go.Choroplethmapbox(visible=False),
+                    go.Scattermapbox(visible=False),
+                ],
+                traces=[1, 3],
+            ),
+        ]
+
+    fig.update_layout(
+        mapbox=dict(
+            style="white-bg",
+            layers=map_layers,
+            center=dict(lat=35.0, lon=136.5),
+            zoom=3.15,
+        ),
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        paper_bgcolor="#7db9d4",
+        plot_bgcolor="#7db9d4",
+        height=600,
+        showlegend=False,
+        hoverlabel=dict(bgcolor="white", font_size=13, font_family="sans-serif"),
+        uirevision="japan-weather-map",
     )
     return fig
 
@@ -2087,7 +2524,29 @@ if section == "realtime":
 
     map_col, alert_col = st.columns([1.45, 0.95], gap="medium")
     with map_col:
-        fig_map = build_japan_map_fig(df_rt)
+        _overlay_col1, _overlay_col2 = st.columns(2)
+        with _overlay_col1:
+            show_radar = st.checkbox(
+                "🌧️ 雨雲レーダー",
+                value=False,
+                key="map_show_radar",
+                help="気象庁の高解像度降水ナウキャストを重ねて表示します。",
+            )
+        with _overlay_col2:
+            show_typhoon = st.checkbox(
+                "🌀 台風進路",
+                value=False,
+                key="map_show_typhoon",
+                help="気象庁が発表中の台風・熱帯低気圧の進路と予報円を表示します。",
+            )
+
+        radar_layer = load_jma_radar_layer() if show_radar else None
+        typhoon_tracks = load_jma_typhoon_tracks() if show_typhoon else []
+        fig_map = build_japan_weather_map_fig(
+            df_rt,
+            radar_layer=radar_layer,
+            typhoons=typhoon_tracks,
+        )
         if fig_map is not None:
             _legend_items = "".join(
                 f'<span><i style="background:{_MAP_COMPANY_STYLES[c][0]};'
@@ -2103,6 +2562,25 @@ if section == "realtime":
                 '</div>',
                 unsafe_allow_html=True,
             )
+            _weather_status = []
+            if show_radar:
+                if radar_layer:
+                    _weather_status.append(
+                        f"🌧️ 雨雲 {radar_layer['observed_at']}現在（気象庁）"
+                    )
+                else:
+                    _weather_status.append("🌧️ 雨雲データを取得できません")
+            if show_typhoon:
+                if typhoon_tracks is None:
+                    _weather_status.append("🌀 台風進路データを取得できません")
+                elif typhoon_tracks:
+                    _weather_status.append(
+                        f"🌀 台風・熱帯低気圧 {len(typhoon_tracks)}件（気象庁）"
+                    )
+                else:
+                    _weather_status.append("🌀 現在、表示対象の台風情報はありません")
+            if _weather_status:
+                st.caption("　|　".join(_weather_status))
             # 都道府県 → 電力会社URLのマッピング（クリックナビ用）
             _pref_url = {
                 str(r["prefecture"]): _COMPANY_URLS.get(str(r.get("data_source", "")), "")
@@ -2151,41 +2629,32 @@ if section == "realtime":
 (function(){{
   var PREF_URL={_pref_url_js};
 
-  function zoomMap(factor){{
+  function mapboxInstance(){{
     var gd=document.querySelector('.plotly-graph-div');
-    if(!gd||!gd.layout||!gd.layout.geo)return;
-    var g=gd.layout.geo;
-    var latR=(g.lataxis&&g.lataxis.range)||[23,46];
-    var lonR=(g.lonaxis&&g.lonaxis.range)||[122,149];
-    var latC=(latR[0]+latR[1])/2, lonC=(lonR[0]+lonR[1])/2;
-    var lats=Math.max(4,Math.min(28,(latR[1]-latR[0])*factor));
-    var lons=Math.max(5,Math.min(35,(lonR[1]-lonR[0])*factor));
-    Plotly.relayout(gd,{{
-      'geo.lataxis.range':[latC-lats/2,latC+lats/2],
-      'geo.lonaxis.range':[lonC-lons/2,lonC+lons/2]
-    }});
+    var subplot=gd&&gd._fullLayout&&gd._fullLayout.mapbox&&gd._fullLayout.mapbox._subplot;
+    return subplot&&subplot.map?subplot.map:null;
+  }}
+
+  function zoomMap(delta){{
+    var map=mapboxInstance();
+    if(!map)return;
+    map.easeTo({{zoom:Math.max(2,Math.min(10,map.getZoom()+delta)),duration:180}});
   }}
 
   function panMap(dlat, dlon){{
-    var gd=document.querySelector('.plotly-graph-div');
-    if(!gd||!gd.layout||!gd.layout.geo)return;
-    var g=gd.layout.geo;
-    var latR=(g.lataxis&&g.lataxis.range)||[23,46];
-    var lonR=(g.lonaxis&&g.lonaxis.range)||[122,149];
-    var latSpan=latR[1]-latR[0], lonSpan=lonR[1]-lonR[0];
-    var latShift=latSpan*dlat, lonShift=lonSpan*dlon;
-    Plotly.relayout(gd,{{
-      'geo.lataxis.range':[latR[0]+latShift, latR[1]+latShift],
-      'geo.lonaxis.range':[lonR[0]+lonShift, lonR[1]+lonShift]
-    }});
+    var map=mapboxInstance();
+    if(!map)return;
+    var center=map.getCenter();
+    var step=8/Math.pow(2,Math.max(0,map.getZoom()-3));
+    map.easeTo({{center:[center.lng+dlon*step,center.lat+dlat*step],duration:180}});
   }}
 
-  document.getElementById('btn-zi').addEventListener('click',function(){{zoomMap(0.65);}});
-  document.getElementById('btn-zo').addEventListener('click',function(){{zoomMap(1/0.65);}});
-  document.getElementById('btn-up').addEventListener('click',function(){{panMap( 0.3, 0);}});
-  document.getElementById('btn-down').addEventListener('click',function(){{panMap(-0.3, 0);}});
-  document.getElementById('btn-left').addEventListener('click',function(){{panMap(0,-0.3);}});
-  document.getElementById('btn-right').addEventListener('click',function(){{panMap(0, 0.3);}});
+  document.getElementById('btn-zi').addEventListener('click',function(){{zoomMap(0.7);}});
+  document.getElementById('btn-zo').addEventListener('click',function(){{zoomMap(-0.7);}});
+  document.getElementById('btn-up').addEventListener('click',function(){{panMap(1,0);}});
+  document.getElementById('btn-down').addEventListener('click',function(){{panMap(-1,0);}});
+  document.getElementById('btn-left').addEventListener('click',function(){{panMap(0,-1);}});
+  document.getElementById('btn-right').addEventListener('click',function(){{panMap(0,1);}});
 
   function init(){{
     var gd=document.querySelector('.plotly-graph-div');
@@ -2196,7 +2665,7 @@ if section == "realtime":
       if(loc&&PREF_URL[loc])window.open(PREF_URL[loc],'_blank','noopener,noreferrer');
     }});
     var s=document.createElement('style');
-    s.textContent='.js-plotly-plot .geo path{{cursor:pointer;}}';
+    s.textContent='.js-plotly-plot .mapboxgl-canvas{{cursor:pointer;}}';
     document.head.appendChild(s);
     var fr=gd._transitionData&&gd._transitionData._frames;
     if(fr&&fr.length){{
