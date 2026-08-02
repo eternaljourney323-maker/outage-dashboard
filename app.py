@@ -910,7 +910,7 @@ def build_japan_weather_map_fig(
         showscale=False,
         marker_line_color="rgba(255,255,255,0.9)",
         marker_line_width=0.8,
-        marker_opacity=0.55 if (radar_layer or lightning_layer) else 0.78,
+        marker_opacity=0.60 if (radar_layer or lightning_layer) else 0.84,
         hovertext=df_map["hover"].tolist(),
         hoverinfo="text",
     )
@@ -1025,14 +1025,14 @@ def build_japan_weather_map_fig(
 
     fig.update_layout(
         mapbox=dict(
-            style="carto-positron",
+            style="open-street-map",
             layers=map_layers,
             center=dict(lat=35.0, lon=136.5),
             zoom=3.15,
         ),
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        paper_bgcolor="#dce9f5",
-        plot_bgcolor="#dce9f5",
+        paper_bgcolor="#aad3df",
+        plot_bgcolor="#aad3df",
         height=600,
         showlegend=False,
         hoverlabel=dict(bgcolor="white", font_size=13, font_family="sans-serif"),
