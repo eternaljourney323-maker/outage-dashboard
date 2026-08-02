@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import datetime as _dt
 import logging
 import math as _math
+import os as _os
 from typing import Optional, List
 import streamlit as st
 import streamlit.components.v1 as _components
@@ -524,14 +525,14 @@ _MAP_COLORSCALE = [
 ]
 
 
-@st.cache_data(ttl=86400 * 7, show_spinner=False)
+@st.cache_data(ttl=86400 * 30, show_spinner=False)
 def _fetch_japan_geojson():
+    _local = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "japan_main.geojson")
     try:
-        r = _req.get(_JAPAN_GEOJSON_URL, timeout=15)
-        r.raise_for_status()
-        return r.json()
+        with open(_local, encoding="utf-8") as _f:
+            return _json.load(_f)
     except Exception as exc:
-        logger.warning("Japan GeoJSON 取得失敗: %s", exc)
+        logger.warning("japan_main.geojson 読み込み失敗: %s", exc)
         return None
 
 
@@ -570,30 +571,6 @@ def _compute_pref_centroids() -> dict:
                 )
     return result
 
-
-@st.cache_data(ttl=86400 * 7, show_spinner=False)
-def _fetch_japan_geojson_simplified():
-    """MultiPolygon から最大ポリゴンのみを残し、離島の描画を除去したGeoJSON"""
-    geojson = _fetch_japan_geojson()
-    if geojson is None:
-        return None
-
-    def _bbox_area(poly):
-        ring = poly[0]
-        xs = [c[0] for c in ring]
-        ys = [c[1] for c in ring]
-        return (max(xs) - min(xs)) * (max(ys) - min(ys))
-
-    features = []
-    for feature in geojson["features"]:
-        geom = feature["geometry"]
-        if geom["type"] == "MultiPolygon":
-            largest = max(geom["coordinates"], key=_bbox_area)
-            new_feature = {**feature, "geometry": {"type": "Polygon", "coordinates": largest}}
-            features.append(new_feature)
-        else:
-            features.append(feature)
-    return {**geojson, "features": features}
 
 
 def _pref_short_label(name: str) -> str:
@@ -856,28 +833,9 @@ def build_japan_weather_map_fig(
     lightning_layer: Optional[dict] = None,
 ):
     """停電情報に雨雲レーダー・雷ナウキャスト・台風進路を重ねられる日本地図。"""
-    _raw_geojson = _fetch_japan_geojson()
-    if _raw_geojson is None:
+    geojson = _fetch_japan_geojson()
+    if geojson is None:
         return None
-
-    # MultiPolygon の最大ポリゴンのみ残す（離島の輪郭を地図から除去）
-    def _bbox_area(poly):
-        ring = poly[0]
-        xs = [c[0] for c in ring]
-        ys = [c[1] for c in ring]
-        return (max(xs) - min(xs)) * (max(ys) - min(ys))
-
-    _simplified_features = []
-    for _feat in _raw_geojson["features"]:
-        _geom = _feat["geometry"]
-        if _geom["type"] == "MultiPolygon" and _geom["coordinates"]:
-            _largest = max(_geom["coordinates"], key=_bbox_area)
-            _simplified_features.append(
-                {**_feat, "geometry": {"type": "Polygon", "coordinates": _largest}}
-            )
-        else:
-            _simplified_features.append(_feat)
-    geojson = {**_raw_geojson, "features": _simplified_features}
 
     company_to_idx = {company: i for i, company in enumerate(_MAP_COMPANY_ORDER)}
     company_colors = [_MAP_COMPANY_STYLES[c][0] for c in _MAP_COMPANY_ORDER]
