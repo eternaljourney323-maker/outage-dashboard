@@ -1024,10 +1024,28 @@ def build_japan_weather_map_fig(
             opacity=0.75,
         ))
 
+    _ocean_layer = dict(
+        sourcetype="geojson",
+        source={
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]
+                    ]],
+                },
+            }],
+        },
+        type="fill",
+        color="#aad3df",
+        below="",
+    )
     fig.update_layout(
         mapbox=dict(
             style="white-bg",
-            layers=map_layers,
+            layers=[_ocean_layer] + map_layers,
             center=dict(lat=35.0, lon=136.5),
             zoom=3.15,
         ),
