@@ -856,9 +856,28 @@ def build_japan_weather_map_fig(
     lightning_layer: Optional[dict] = None,
 ):
     """停電情報に雨雲レーダー・雷ナウキャスト・台風進路を重ねられる日本地図。"""
-    geojson = _fetch_japan_geojson_simplified()
-    if geojson is None:
+    _raw_geojson = _fetch_japan_geojson()
+    if _raw_geojson is None:
         return None
+
+    # MultiPolygon の最大ポリゴンのみ残す（離島の輪郭を地図から除去）
+    def _bbox_area(poly):
+        ring = poly[0]
+        xs = [c[0] for c in ring]
+        ys = [c[1] for c in ring]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+
+    _simplified_features = []
+    for _feat in _raw_geojson["features"]:
+        _geom = _feat["geometry"]
+        if _geom["type"] == "MultiPolygon" and _geom["coordinates"]:
+            _largest = max(_geom["coordinates"], key=_bbox_area)
+            _simplified_features.append(
+                {**_feat, "geometry": {"type": "Polygon", "coordinates": _largest}}
+            )
+        else:
+            _simplified_features.append(_feat)
+    geojson = {**_raw_geojson, "features": _simplified_features}
 
     company_to_idx = {company: i for i, company in enumerate(_MAP_COMPANY_ORDER)}
     company_colors = [_MAP_COMPANY_STYLES[c][0] for c in _MAP_COMPANY_ORDER]
