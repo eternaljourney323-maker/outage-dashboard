@@ -893,18 +893,26 @@ def build_japan_weather_map_fig(
         hoverinfo="skip",
     )
 
-    count_lons, count_lats, count_texts, count_colors = [], [], [], []
+    count_lons, count_lats, count_texts, count_marker_sizes = [], [], [], []
     for pref, count in outage_rows:
         lon, lat = centroids[pref]
         count_lons.append(lon)
         count_lats.append(lat - 0.35)
-        count_texts.append(f"{count:,}")
+        count_text = f"{count:,}"
+        count_texts.append(count_text)
+        count_marker_sizes.append(max(24, 10 + len(count_text) * 4))
     count_trace = go.Scattermapbox(
         lon=count_lons,
         lat=count_lats,
         text=count_texts,
-        mode="text",
-        textfont=dict(size=10, color="#7f1d1d", family="sans-serif"),
+        mode="markers+text",
+        marker=dict(
+            size=count_marker_sizes,
+            color="#991b1b",
+            opacity=0.96,
+        ),
+        textposition="middle center",
+        textfont=dict(size=11, color="#ffffff", family="sans-serif"),
         showlegend=False,
         hoverinfo="skip",
         visible=has_outages,
@@ -2654,9 +2662,7 @@ if section == "realtime":
       var blinkTimer=setInterval(function(){{
         if(!document.body.contains(gd)){{clearInterval(blinkTimer);return;}}
         blinkOn=!blinkOn;
-        Plotly.restyle(gd,{{
-          'textfont.color':blinkOn?'#7f1d1d':'rgba(127,29,29,0)'
-        }},[3]);
+        Plotly.restyle(gd,{{opacity:blinkOn?1:0.38}},[3]);
       }},650);
     }}
   }}
