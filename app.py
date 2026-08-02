@@ -571,6 +571,31 @@ def _compute_pref_centroids() -> dict:
     return result
 
 
+@st.cache_data(ttl=86400 * 7, show_spinner=False)
+def _fetch_japan_geojson_simplified():
+    """MultiPolygon から最大ポリゴンのみを残し、離島の描画を除去したGeoJSON"""
+    geojson = _fetch_japan_geojson()
+    if geojson is None:
+        return None
+
+    def _bbox_area(poly):
+        ring = poly[0]
+        xs = [c[0] for c in ring]
+        ys = [c[1] for c in ring]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+
+    features = []
+    for feature in geojson["features"]:
+        geom = feature["geometry"]
+        if geom["type"] == "MultiPolygon":
+            largest = max(geom["coordinates"], key=_bbox_area)
+            new_feature = {**feature, "geometry": {"type": "Polygon", "coordinates": largest}}
+            features.append(new_feature)
+        else:
+            features.append(feature)
+    return {**geojson, "features": features}
+
+
 def _pref_short_label(name: str) -> str:
     """都道府県名を地図ラベル用に短縮（北海道・京都など誤切りを防ぐ）"""
     _FIXED = {
@@ -831,7 +856,7 @@ def build_japan_weather_map_fig(
     lightning_layer: Optional[dict] = None,
 ):
     """停電情報に雨雲レーダー・雷ナウキャスト・台風進路を重ねられる日本地図。"""
-    geojson = _fetch_japan_geojson()
+    geojson = _fetch_japan_geojson_simplified()
     if geojson is None:
         return None
 
