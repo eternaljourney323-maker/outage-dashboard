@@ -901,24 +901,37 @@ def build_japan_weather_map_fig(
         count_text = f"{count:,}"
         count_texts.append(count_text)
         count_marker_sizes.append(max(24, 10 + len(count_text) * 4))
-    count_trace = go.Scattermapbox(
+    count_badge_trace = go.Scattermapbox(
         lon=count_lons,
         lat=count_lats,
-        text=count_texts,
-        mode="markers+text",
+        mode="markers",
         marker=dict(
             size=count_marker_sizes,
             color="#991b1b",
             opacity=0.96,
         ),
-        textposition="middle center",
+        showlegend=False,
+        hoverinfo="skip",
+        visible=has_outages,
+    )
+    count_text_trace = go.Scattermapbox(
+        lon=count_lons,
+        lat=count_lats,
+        text=count_texts,
+        mode="text",
         textfont=dict(size=11, color="#ffffff", family="sans-serif"),
         showlegend=False,
         hoverinfo="skip",
         visible=has_outages,
     )
 
-    fig = go.Figure(data=[base_trace, alert_trace, name_trace, count_trace])
+    fig = go.Figure(data=[
+        base_trace,
+        alert_trace,
+        name_trace,
+        count_badge_trace,
+        count_text_trace,
+    ])
 
     for typhoon in typhoons or []:
         history = typhoon.get("history", [])
@@ -2662,7 +2675,7 @@ if section == "realtime":
       var blinkTimer=setInterval(function(){{
         if(!document.body.contains(gd)){{clearInterval(blinkTimer);return;}}
         blinkOn=!blinkOn;
-        Plotly.restyle(gd,{{opacity:blinkOn?1:0.38}},[3]);
+        Plotly.restyle(gd,{{opacity:blinkOn?1:0.38}},[3,4]);
       }},650);
     }}
   }}
