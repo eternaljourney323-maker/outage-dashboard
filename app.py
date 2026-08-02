@@ -940,10 +940,20 @@ def build_japan_weather_map_fig(
         hoverinfo="skip",
     )
 
+    ocean_trace = go.Scattermapbox(
+        lat=[-85, -85, 85, 85, -85],
+        lon=[-180, 180, 180, -180, -180],
+        mode="none",
+        fill="toself",
+        fillcolor="#aad3df",
+        hoverinfo="skip",
+        showlegend=False,
+    )
     fig = go.Figure(data=[
-        base_trace,   # 0
-        alert_trace,  # 1
-        name_trace,   # 2
+        ocean_trace,  # 0 最下層（海の背景）
+        base_trace,   # 1
+        alert_trace,  # 2
+        name_trace,   # 3
     ])
 
     for typhoon in typhoons or []:
@@ -1023,16 +1033,6 @@ def build_japan_weather_map_fig(
             below="traces",
             opacity=0.75,
         ))
-
-    fig.data = (go.Scattermapbox(
-        lat=[-85, -85, 85, 85, -85],
-        lon=[-180, 180, 180, -180, -180],
-        mode="none",
-        fill="toself",
-        fillcolor="#aad3df",
-        hoverinfo="skip",
-        showlegend=False,
-    ),) + tuple(fig.data)
 
     fig.update_layout(
         mapbox=dict(
