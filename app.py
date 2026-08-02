@@ -2619,13 +2619,14 @@ if section == "realtime":
             _pref_url_js = _json.dumps(_pref_url, ensure_ascii=False)
             _has_outages_js = "true" if confirmed_active > 0 else "false"
 
-            # 停電軒数バッジ用データ（地理座標 + 軒数テキスト）
+            # 停電軒数バッジ用データ（地理座標 + 軒数）
             _centroids = _compute_pref_centroids()
             _outage_centers = [
                 {
                     "lon": _centroids[str(r["prefecture"])][0],
                     "lat": _centroids[str(r["prefecture"])][1],
                     "count": f"{int(r['affected_customers']):,}",
+                    "n": int(r["affected_customers"]),
                 }
                 for _, r in df_rt.iterrows()
                 if (
@@ -2657,17 +2658,14 @@ if section == "realtime":
   .outage-badge{{
     position:absolute;
     border-radius:50%;
-    background:#991b1b;
-    color:#fff;
+    background:transparent;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:13px;
     font-weight:700;
     font-family:sans-serif;
     pointer-events:none;
     z-index:9998;
-    box-shadow:0 2px 6px rgba(0,0,0,0.45);
     transition:opacity 0.15s;
   }}
 </style>
@@ -2724,15 +2722,20 @@ if section == "realtime":
 
   var _badgesVisible=true;
 
+  function sevColor(n){{
+    if(n>=10000)return'#7f1d1d';
+    if(n>=1000) return'#9a3412';
+    if(n>=100)  return'#b45309';
+    return'#78350f';
+  }}
+
   function drawBadges(){{
     var gd=document.querySelector('.plotly-graph-div');
     var map=mapboxInstance();
     if(!gd||!map)return;
     gd.style.position='relative';
-    // 既存バッジを削除
     gd.querySelectorAll('.outage-badge').forEach(function(el){{el.remove();}});
     if(!HAS_OUTAGES)return;
-    // mapboxキャンバスのオフセット（plotly-graph-divからの相対位置）
     var mc=gd.querySelector('.mapboxgl-map');
     var gdRect=gd.getBoundingClientRect();
     var mcRect=mc?mc.getBoundingClientRect():gdRect;
@@ -2740,17 +2743,21 @@ if section == "realtime":
     var offY=mcRect.top-gdRect.top;
     OUTAGE_CENTERS.forEach(function(d){{
       var px=map.project([d.lon,d.lat]);
-      var n=d.count.length;
-      var sz=Math.max(38,18+n*8);
+      var clen=d.count.length;
+      var sz=Math.max(36,16+clen*8);
+      var c=sevColor(d.n);
       var badge=document.createElement('div');
       badge.className='outage-badge';
       badge.textContent=d.count;
       badge.style.width=sz+'px';
       badge.style.height=sz+'px';
-      badge.style.fontSize=Math.max(11,16-Math.max(0,n-3))+'px';
+      badge.style.fontSize=Math.max(11,15-Math.max(0,clen-3))+'px';
+      badge.style.border='2.5px solid '+c;
+      badge.style.color=c;
+      badge.style.textShadow='0 0 4px rgba(255,255,255,0.98),0 0 8px rgba(255,255,255,0.9)';
       badge.style.left=(offX+px.x-sz/2)+'px';
       badge.style.top=(offY+px.y-sz/2)+'px';
-      badge.style.opacity=_badgesVisible?'1':'0.1';
+      badge.style.opacity=_badgesVisible?'1':'0.08';
       gd.appendChild(badge);
     }});
   }}
