@@ -990,26 +990,6 @@ def build_japan_weather_map_fig(
             opacity=0.68,
         ))
 
-    if has_outages:
-        fig.frames = [
-            go.Frame(
-                name="on",
-                data=[
-                    go.Choroplethmapbox(visible=True),
-                    go.Scattermapbox(visible=True),
-                ],
-                traces=[1, 3],
-            ),
-            go.Frame(
-                name="off",
-                data=[
-                    go.Choroplethmapbox(visible=False),
-                    go.Scattermapbox(visible=False),
-                ],
-                traces=[1, 3],
-            ),
-        ]
-
     fig.update_layout(
         mapbox=dict(
             style="white-bg",
@@ -2588,6 +2568,7 @@ if section == "realtime":
                 if _COMPANY_URLS.get(str(r.get("data_source", "")))
             }
             _pref_url_js = _json.dumps(_pref_url, ensure_ascii=False)
+            _has_outages_js = "true" if confirmed_active > 0 else "false"
             _fig_html = _pio.to_html(
                 fig_map,
                 include_plotlyjs="cdn",
@@ -2628,6 +2609,7 @@ if section == "realtime":
 <script>
 (function(){{
   var PREF_URL={_pref_url_js};
+  var HAS_OUTAGES={_has_outages_js};
 
   function mapboxInstance(){{
     var gd=document.querySelector('.plotly-graph-div');
@@ -2667,15 +2649,15 @@ if section == "realtime":
     var s=document.createElement('style');
     s.textContent='.js-plotly-plot .mapboxgl-canvas{{cursor:pointer;}}';
     document.head.appendChild(s);
-    var fr=gd._transitionData&&gd._transitionData._frames;
-    if(fr&&fr.length){{
-      (function loop(){{
-        Plotly.animate(gd,null,{{
-          frame:{{duration:700,redraw:true}},
-          transition:{{duration:150}},
-          mode:'immediate'
-        }}).then(loop);
-      }})();
+    if(HAS_OUTAGES){{
+      var blinkOn=true;
+      var blinkTimer=setInterval(function(){{
+        if(!document.body.contains(gd)){{clearInterval(blinkTimer);return;}}
+        blinkOn=!blinkOn;
+        Plotly.restyle(gd,{{
+          'textfont.color':blinkOn?'#7f1d1d':'rgba(127,29,29,0)'
+        }},[3]);
+      }},650);
     }}
   }}
   setTimeout(init,600);
