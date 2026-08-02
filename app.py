@@ -525,7 +525,6 @@ _MAP_COLORSCALE = [
 ]
 
 
-@st.cache_data(ttl=86400 * 30, show_spinner=False)
 def _fetch_japan_geojson():
     _local = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "japan_main.geojson")
     try:
@@ -1027,7 +1026,7 @@ def build_japan_weather_map_fig(
 
     fig.update_layout(
         mapbox=dict(
-            style="open-street-map",
+            style="white-bg",
             layers=map_layers,
             center=dict(lat=35.0, lon=136.5),
             zoom=3.15,
