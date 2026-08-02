@@ -1938,10 +1938,10 @@ with st.sidebar:
     st.markdown(
         '<div style="font-size:0.65rem;font-weight:700;color:#475569;'
         'letter-spacing:0.08em;text-transform:uppercase;'
-        'padding:10px 16px 4px;">Causes</div>',
+        'padding:10px 16px 4px;">データ分析</div>',
         unsafe_allow_html=True,
     )
-    if st.button("⚠️　停電起因・状況一覧",
+    if st.button("⚠️　停電原因データ",
                  use_container_width=True, key="nav_cause"):
         st.session_state["active_section"] = "cause"
 
@@ -2220,57 +2220,16 @@ if section == "realtime":
     with alert_col:
         st.markdown(build_emergency_table_html(df_rt), unsafe_allow_html=True)
 
-    # ── ボトムパネル コントロール ──────────────────────────────
-    _bc1, _bc2, _bc3, _bc4 = st.columns([1, 1.4, 0.9, 0.9])
-    with _bc1:
-        rg_label = st.radio(
-            "表示単位", ["都道府県別", "電力会社別"],
-            horizontal=True, key="rg_ctrl",
-        )
-        rank_group = "company" if rg_label == "電力会社別" else "pref"
-    if rank_group == "company":
-        area_options = ["all"] + sorted(df_rt["data_source"].dropna().unique().tolist())
-        area_display = ["全体"] + [_short_company_name(a) for a in area_options[1:]]
-    else:
-        area_options = ["all"] + sorted(df_rt["prefecture"].dropna().unique().tolist())
-        area_display = ["全体"] + area_options[1:]
-    with _bc2:
-        area_sel = st.selectbox("エリア絞り込み", area_display, key=f"area_ctrl_{rank_group}")
-        selected_area = area_options[area_display.index(area_sel)]
-    with _bc3:
-        cp_label = st.radio(
-            "期間", ["全期間", "直近7日"],
-            horizontal=True, key="cp_ctrl",
-        )
-        cause_period = "recent" if cp_label == "直近7日" else "all"
-    with _bc4:
-        tm_label = st.radio(
-            "トレンド", ["日次", "週次"],
-            horizontal=True, key="tm_ctrl",
-        )
-        trend_mode = "weekly" if tm_label == "週次" else "daily"
-
-    bottom2, bottom3 = st.columns([1, 1], gap="medium")
-    with bottom2:
-        st.markdown(
-            build_cause_donut_panel_html(
-                cause_period, rank_group, selected_area, area_options,
-            ),
-            unsafe_allow_html=True,
-        )
-    with bottom3:
-        st.markdown(
-            build_cause_trend_panel_html(
-                trend_mode, rank_group, selected_area, area_options,
-            ),
-            unsafe_allow_html=True,
-        )
-
 
 # ═══════════════════════════════════════════════════
-# 事故起因 集計（実データ）
+# 停電原因データ（実データ）
 # ═══════════════════════════════════════════════════
 elif section == "cause":
+    st.markdown(
+        '<div class="section-title">⚠️ 停電原因データ</div>',
+        unsafe_allow_html=True,
+    )
+
     with st.spinner("停電履歴・起因データを取得中..."):
         df_hist_c = load_history_data()
 
