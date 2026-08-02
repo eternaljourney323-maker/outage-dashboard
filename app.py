@@ -535,6 +535,42 @@ def _fetch_japan_geojson():
         return None
 
 
+@st.cache_data(ttl=86400 * 30, show_spinner=False)
+def _compute_pref_centroids() -> dict:
+    """都道府県名 → (lon, lat) セントロイドの辞書（キャッシュ）"""
+    geojson = _fetch_japan_geojson()
+    if geojson is None:
+        return {}
+
+    def _bbox_area(poly):
+        ring = poly[0]
+        xs = [c[0] for c in ring]
+        ys = [c[1] for c in ring]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+
+    result = {}
+    for feature in geojson["features"]:
+        name = feature["properties"]["nam_ja"]
+        geom = feature["geometry"]
+        if name in _PREF_LABEL_POS_OVERRIDE:
+            result[name] = _PREF_LABEL_POS_OVERRIDE[name]
+        elif geom["type"] == "Polygon":
+            coords = geom["coordinates"][0]
+            if coords:
+                result[name] = (
+                    sum(c[0] for c in coords) / len(coords),
+                    sum(c[1] for c in coords) / len(coords),
+                )
+        elif geom["type"] == "MultiPolygon":
+            coords = max(geom["coordinates"], key=_bbox_area)[0]
+            if coords:
+                result[name] = (
+                    sum(c[0] for c in coords) / len(coords),
+                    sum(c[1] for c in coords) / len(coords),
+                )
+    return result
+
+
 def _pref_short_label(name: str) -> str:
     """都道府県名を地図ラベル用に短縮（北海道・京都など誤切りを防ぐ）"""
     _FIXED = {
@@ -828,30 +864,7 @@ def build_japan_weather_map_fig(
         axis=1,
     )
 
-    def _bbox_area(poly):
-        ring = poly[0]
-        xs = [coords[0] for coords in ring]
-        ys = [coords[1] for coords in ring]
-        return (max(xs) - min(xs)) * (max(ys) - min(ys))
-
-    centroids = {}
-    for feature in geojson["features"]:
-        name = feature["properties"]["nam_ja"]
-        geometry = feature["geometry"]
-        if name in _PREF_LABEL_POS_OVERRIDE:
-            centroids[name] = _PREF_LABEL_POS_OVERRIDE[name]
-            continue
-        if geometry["type"] == "Polygon":
-            coords = geometry["coordinates"][0]
-        elif geometry["type"] == "MultiPolygon":
-            coords = max(geometry["coordinates"], key=_bbox_area)[0]
-        else:
-            continue
-        if coords:
-            centroids[name] = (
-                sum(point[0] for point in coords) / len(coords),
-                sum(point[1] for point in coords) / len(coords),
-            )
+    centroids = _compute_pref_centroids()
 
     def _severity(count: int) -> int:
         if count >= 10000:
@@ -926,36 +939,10 @@ def build_japan_weather_map_fig(
         hoverinfo="skip",
     )
 
-    count_lons, count_lats, count_texts, count_marker_sizes = [], [], [], []
-    for pref, count in outage_rows:
-        lon, lat = centroids[pref]
-        count_lons.append(lon)
-        count_lats.append(lat - 0.2)
-        count_text = f"{count:,}"
-        count_texts.append(count_text)
-        count_marker_sizes.append(max(36, 18 + len(count_text) * 7))
-    count_trace = go.Scattermapbox(
-        lon=count_lons,
-        lat=count_lats,
-        text=count_texts,
-        mode="markers+text",
-        textposition="middle center",
-        textfont=dict(size=13, color="#ffffff", family="sans-serif"),
-        marker=dict(
-            size=count_marker_sizes,
-            color="#991b1b",
-            opacity=0.96,
-        ),
-        showlegend=False,
-        hoverinfo="skip",
-        visible=has_outages,
-    )
-
     fig = go.Figure(data=[
         base_trace,   # 0
         alert_trace,  # 1
         name_trace,   # 2
-        count_trace,  # 3 (badge + number combined)
     ])
 
     for typhoon in typhoons or []:
@@ -2631,6 +2618,24 @@ if section == "realtime":
             }
             _pref_url_js = _json.dumps(_pref_url, ensure_ascii=False)
             _has_outages_js = "true" if confirmed_active > 0 else "false"
+
+            # 停電軒数バッジ用データ（地理座標 + 軒数テキスト）
+            _centroids = _compute_pref_centroids()
+            _outage_centers = [
+                {
+                    "lon": _centroids[str(r["prefecture"])][0],
+                    "lat": _centroids[str(r["prefecture"])][1],
+                    "count": f"{int(r['affected_customers']):,}",
+                }
+                for _, r in df_rt.iterrows()
+                if (
+                    r.get("data_status") == "取得済み"
+                    and r["affected_customers"] > 0
+                    and str(r["prefecture"]) in _centroids
+                )
+            ]
+            _outage_centers_js = _json.dumps(_outage_centers, ensure_ascii=False)
+
             _fig_html = _pio.to_html(
                 fig_map,
                 include_plotlyjs="cdn",
@@ -2649,6 +2654,22 @@ if section == "realtime":
   }}
   .map-btn:hover{{background:rgba(241,245,249,0.97);}}
   .map-btn.blank{{background:transparent;border:none;box-shadow:none;pointer-events:none;}}
+  .outage-badge{{
+    position:absolute;
+    border-radius:50%;
+    background:#991b1b;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    font-family:sans-serif;
+    pointer-events:none;
+    z-index:9998;
+    box-shadow:0 2px 6px rgba(0,0,0,0.45);
+    transition:opacity 0.15s;
+  }}
 </style>
 <div style="position:fixed;bottom:36px;right:12px;
             display:grid;grid-template-columns:32px 32px 32px;gap:4px;z-index:9999;">
@@ -2672,6 +2693,7 @@ if section == "realtime":
 (function(){{
   var PREF_URL={_pref_url_js};
   var HAS_OUTAGES={_has_outages_js};
+  var OUTAGE_CENTERS={_outage_centers_js};
 
   function mapboxInstance(){{
     var gd=document.querySelector('.plotly-graph-div');
@@ -2700,9 +2722,45 @@ if section == "realtime":
   document.getElementById('btn-left').addEventListener('click',function(){{panMap(0,-1);}});
   document.getElementById('btn-right').addEventListener('click',function(){{panMap(0,1);}});
 
+  var _badgesVisible=true;
+
+  function drawBadges(){{
+    var gd=document.querySelector('.plotly-graph-div');
+    var map=mapboxInstance();
+    if(!gd||!map)return;
+    gd.style.position='relative';
+    // 既存バッジを削除
+    gd.querySelectorAll('.outage-badge').forEach(function(el){{el.remove();}});
+    if(!HAS_OUTAGES)return;
+    // mapboxキャンバスのオフセット（plotly-graph-divからの相対位置）
+    var mc=gd.querySelector('.mapboxgl-map');
+    var gdRect=gd.getBoundingClientRect();
+    var mcRect=mc?mc.getBoundingClientRect():gdRect;
+    var offX=mcRect.left-gdRect.left;
+    var offY=mcRect.top-gdRect.top;
+    OUTAGE_CENTERS.forEach(function(d){{
+      var px=map.project([d.lon,d.lat]);
+      var n=d.count.length;
+      var sz=Math.max(38,18+n*8);
+      var badge=document.createElement('div');
+      badge.className='outage-badge';
+      badge.textContent=d.count;
+      badge.style.width=sz+'px';
+      badge.style.height=sz+'px';
+      badge.style.fontSize=Math.max(11,16-Math.max(0,n-3))+'px';
+      badge.style.left=(offX+px.x-sz/2)+'px';
+      badge.style.top=(offY+px.y-sz/2)+'px';
+      badge.style.opacity=_badgesVisible?'1':'0.1';
+      gd.appendChild(badge);
+    }});
+  }}
+
   function init(){{
     var gd=document.querySelector('.plotly-graph-div');
     if(!gd||!gd._fullLayout){{setTimeout(init,200);return;}}
+    var map=mapboxInstance();
+    if(!map){{setTimeout(init,200);return;}}
+
     gd.on('plotly_click',function(d){{
       if(!d.points||!d.points.length)return;
       var loc=d.points[0].location;
@@ -2711,17 +2769,28 @@ if section == "realtime":
     var s=document.createElement('style');
     s.textContent='.js-plotly-plot .mapboxgl-canvas{{cursor:pointer;}}';
     document.head.appendChild(s);
+
+    map.on('move',drawBadges);
+    map.on('zoom',drawBadges);
+    map.on('resize',drawBadges);
+    drawBadges();
+
     if(HAS_OUTAGES){{
       var blinkOn=true;
       var blinkTimer=setInterval(function(){{
         if(!document.body.contains(gd)){{clearInterval(blinkTimer);return;}}
         blinkOn=!blinkOn;
-        Plotly.restyle(gd,{{opacity:blinkOn?0.78:0.15}},[1]);
-        Plotly.restyle(gd,{{opacity:blinkOn?1:0.15}},[3]);
+        _badgesVisible=blinkOn;
+        // HTMLバッジを点滅
+        gd.querySelectorAll('.outage-badge').forEach(function(el){{
+          el.style.opacity=blinkOn?'1':'0.1';
+        }});
+        // Plotlyアラートオーバーレイ（trace 1）も同期点滅
+        Plotly.restyle(gd,{{opacity:blinkOn?0.78:0.12}},[1]);
       }},700);
     }}
   }}
-  setTimeout(init,600);
+  setTimeout(init,800);
 }})();
 </script>"""
             _fig_html = _fig_html.replace("</body>", _inject + "</body>")
