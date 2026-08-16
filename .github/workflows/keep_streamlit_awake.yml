@@ -1,0 +1,37 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    # Streamlit Community Cloud は無通信が12時間続くと休止するため，
+    # 余裕を持って8時間ごとにデプロイ元ブランチへ更新通知を送る。
+    - cron: "17 */8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: keep-streamlit-awake
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Streamlit of repository activity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keep Streamlit app awake [skip ci]"
+          git push origin HEAD:main
