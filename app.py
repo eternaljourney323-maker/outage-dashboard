@@ -900,7 +900,7 @@ def build_japan_weather_map_fig(
         [0.750, severity_colors[4]], [1.000, severity_colors[4]],
     ]
 
-    base_trace = go.Choroplethmapbox(
+    base_trace = go.Choroplethmap(
         geojson=geojson,
         featureidkey="properties.nam_ja",
         locations=df_map["prefecture"].tolist(),
@@ -915,7 +915,7 @@ def build_japan_weather_map_fig(
         hovertext=df_map["hover"].tolist(),
         hoverinfo="text",
     )
-    alert_trace = go.Choroplethmapbox(
+    alert_trace = go.Choroplethmap(
         geojson=geojson,
         featureidkey="properties.nam_ja",
         locations=[pref for pref, _ in outage_rows],
@@ -930,7 +930,7 @@ def build_japan_weather_map_fig(
         hoverinfo="skip",
         visible=has_outages,
     )
-    name_trace = go.Scattermapbox(
+    name_trace = go.Scattermap(
         lon=[centroids[name][0] for name in centroids],
         lat=[centroids[name][1] for name in centroids],
         text=[_pref_short_label(name) for name in centroids],
@@ -950,7 +950,7 @@ def build_japan_weather_map_fig(
         history = typhoon.get("history", [])
         forecast = typhoon.get("forecast", [])
         if len(history) >= 2:
-            fig.add_trace(go.Scattermapbox(
+            fig.add_trace(go.Scattermap(
                 lat=[point[0] for point in history],
                 lon=[point[1] for point in history],
                 mode="lines",
@@ -965,7 +965,7 @@ def build_japan_weather_map_fig(
             circle_lats, circle_lons = _circle_polygon(
                 point["lat"], point["lon"], point["radius_m"]
             )
-            fig.add_trace(go.Scattermapbox(
+            fig.add_trace(go.Scattermap(
                 lat=circle_lats,
                 lon=circle_lons,
                 mode="lines",
@@ -983,7 +983,7 @@ def build_japan_weather_map_fig(
                 + ("実況" if point["hours"] == 0 else f"{point['hours']}時間後予報")
                 for point in forecast
             ]
-            fig.add_trace(go.Scattermapbox(
+            fig.add_trace(go.Scattermap(
                 lat=[point["lat"] for point in forecast],
                 lon=[point["lon"] for point in forecast],
                 mode="lines+markers",
@@ -997,7 +997,7 @@ def build_japan_weather_map_fig(
                 showlegend=False,
             ))
             current = forecast[0]
-            fig.add_trace(go.Scattermapbox(
+            fig.add_trace(go.Scattermap(
                 lat=[current["lat"]],
                 lon=[current["lon"]],
                 text=[f"🌀 {typhoon['name']}"],
@@ -1037,7 +1037,7 @@ def build_japan_weather_map_fig(
         ))
 
     fig.update_layout(
-        mapbox=dict(
+        map=dict(
             style="white-bg",
             layers=map_layers,
             center=dict(lat=35.0, lon=136.5),
@@ -2706,20 +2706,20 @@ if section == "realtime":
   var HAS_OUTAGES={_has_outages_js};
   var OUTAGE_CENTERS={_outage_centers_js};
 
-  function mapboxInstance(){{
+  function mapInstance(){{
     var gd=document.querySelector('.plotly-graph-div');
-    var subplot=gd&&gd._fullLayout&&gd._fullLayout.mapbox&&gd._fullLayout.mapbox._subplot;
+    var subplot=gd&&gd._fullLayout&&gd._fullLayout.map&&gd._fullLayout.map._subplot;
     return subplot&&subplot.map?subplot.map:null;
   }}
 
   function zoomMap(delta){{
-    var map=mapboxInstance();
+    var map=mapInstance();
     if(!map)return;
     map.easeTo({{zoom:Math.max(2,Math.min(10,map.getZoom()+delta)),duration:180}});
   }}
 
   function panMap(dlat, dlon){{
-    var map=mapboxInstance();
+    var map=mapInstance();
     if(!map)return;
     var center=map.getCenter();
     var step=8/Math.pow(2,Math.max(0,map.getZoom()-3));
@@ -2744,12 +2744,12 @@ if section == "realtime":
 
   function drawBadges(){{
     var gd=document.querySelector('.plotly-graph-div');
-    var map=mapboxInstance();
+    var map=mapInstance();
     if(!gd||!map)return;
     gd.style.position='relative';
     gd.querySelectorAll('.outage-badge').forEach(function(el){{el.remove();}});
     if(!HAS_OUTAGES)return;
-    var mc=gd.querySelector('.mapboxgl-map');
+    var mc=gd.querySelector('.maplibregl-map');
     var gdRect=gd.getBoundingClientRect();
     var mcRect=mc?mc.getBoundingClientRect():gdRect;
     var offX=mcRect.left-gdRect.left;
@@ -2778,7 +2778,7 @@ if section == "realtime":
   function init(){{
     var gd=document.querySelector('.plotly-graph-div');
     if(!gd||!gd._fullLayout){{setTimeout(init,200);return;}}
-    var map=mapboxInstance();
+    var map=mapInstance();
     if(!map){{setTimeout(init,200);return;}}
 
     gd.on('plotly_click',function(d){{
@@ -2787,7 +2787,7 @@ if section == "realtime":
       if(loc&&PREF_URL[loc])window.open(PREF_URL[loc],'_blank','noopener,noreferrer');
     }});
     var s=document.createElement('style');
-    s.textContent='.js-plotly-plot .mapboxgl-canvas{{cursor:pointer;}}';
+    s.textContent='.js-plotly-plot .maplibregl-canvas{{cursor:pointer;}}';
     document.head.appendChild(s);
 
     map.on('move',drawBadges);
